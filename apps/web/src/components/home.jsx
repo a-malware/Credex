@@ -1,5 +1,7 @@
 "use client";
 import { useStore } from "@/store/useStore";
+import { useWallet } from "@solana/wallet-adapter-react";
+import { useNetworkConfig, useNodeState } from "@/chain/accounts";
 import {
   TrendingUp,
   ArrowUpRight,
@@ -18,7 +20,7 @@ import {
   Lock,
   Gift,
 } from "lucide-react";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 
 const ACTIVITY_META = {
   task: { color: "#05C48F", bg: "#ECFDF5", Icon: CheckCircle },
@@ -46,10 +48,35 @@ export default function Home() {
     graduated,
     claimedGenesis,
     setActiveModal,
+    setReputation,
+    setPhase,
+    setTasksCompleted,
+    setGraduated,
   } = useStore();
+
+  const { publicKey } = useWallet();
+  const { data: networkConfig, loading: configLoading } = useNetworkConfig();
+  const { data: nodeState, loading: nodeLoading } = useNodeState(publicKey);
 
   const [hideBalance, setHideBalance] = useState(false);
   const longPressRef = useRef(null);
+
+  // Sync blockchain data to local store
+  useEffect(() => {
+    if (nodeState) {
+      // Convert BPS (basis points) to decimal (10000 = 1.0)
+      const repDecimal = nodeState.reputationBps / 10000;
+      setReputation(repDecimal);
+      
+      // Map phase enum to number
+      const phaseMap = { phase1: 1, phase2: 2, phase3: 3, full: 4, banned: 0 };
+      const phaseNum = phaseMap[Object.keys(nodeState.phase)[0]] || 1;
+      setPhase(phaseNum);
+      
+      setTasksCompleted(nodeState.tasksPassed || 0);
+      setGraduated(phaseNum === 4);
+    }
+  }, [nodeState, setReputation, setPhase, setTasksCompleted, setGraduated]);
 
   const startLongPress = () => {
     longPressRef.current = setTimeout(() => setActiveModal("slash"), 700);
@@ -62,8 +89,57 @@ export default function Home() {
   const repBg =
     reputation >= 0.7 ? "#ECFDF5" : reputation >= 0.4 ? "#FFFBEB" : "#FEF2F2";
 
+  // Show loading state while fetching blockchain data
+  const isLoading = configLoading || (publicKey && nodeLoading);
+  const currentRound = networkConfig?.currentRound?.toNumber() || 0;
+  const totalNodes = networkConfig?.totalNodes || 0;
+
   return (
     <div style={{ padding: "20px 16px 0" }}>
+      {/* Network Stats - NEW: Display blockchain data */}
+      {networkConfig && (
+        <div
+          style={{
+            background: "linear-gradient(135deg, #F9FAFB 0%, #F3F4F6 100%)",
+            borderRadius: 18,
+            padding: "14px 16px",
+            marginBottom: 16,
+            border: "1px solid #E5E7EB",
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div>
+              <div style={{ fontSize: 11, color: "#6B7280", fontWeight: 600, marginBottom: 4 }}>
+                NETWORK STATUS
+              </div>
+              <div style={{ display: "flex", gap: 16 }}>
+                <div>
+                  <span style={{ fontSize: 13, color: "#9CA3AF" }}>Round: </span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: "#0D1421" }}>
+                    {currentRound}
+                  </span>
+                </div>
+                <div>
+                  <span style={{ fontSize: 13, color: "#9CA3AF" }}>Nodes: </span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: "#0D1421" }}>
+                    {totalNodes}
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: "50%",
+                background: "#05C48F",
+                boxShadow: "0 0 0 3px #05C48F30",
+              }}
+            />
+          </div>
+        </div>
+      )}
+
       {/* Portfolio Balance */}
       <div
         style={{
@@ -264,7 +340,7 @@ export default function Home() {
                 marginBottom: 8,
               }}
             >
-              MERIT SCORE
+              {nodeState ? "MERIT SCORE" : "NOT REGISTERED"}
             </div>
             <div
               style={{
@@ -275,33 +351,41 @@ export default function Home() {
                 letterSpacing: -2,
               }}
             >
-              {repPercent}
-              <span style={{ fontSize: 28, fontWeight: 700 }}>%</span>
+              {nodeState ? (
+                <>
+                  {repPercent}
+                  <span style={{ fontSize: 28, fontWeight: 700 }}>%</span>
+                </>
+              ) : (
+                <span style={{ fontSize: 32, fontWeight: 700 }}>--</span>
+              )}
             </div>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 5,
-                marginTop: 10,
-              }}
-            >
+            {nodeState && (
               <div
                 style={{
-                  background: "rgba(255,255,255,0.2)",
-                  borderRadius: 20,
-                  padding: "3px 8px",
                   display: "flex",
                   alignItems: "center",
-                  gap: 4,
+                  gap: 5,
+                  marginTop: 10,
                 }}
               >
-                <TrendingUp size={12} color="white" />
-                <span style={{ color: "white", fontSize: 12, fontWeight: 600 }}>
-                  +{reputationGrowth.toFixed(1)}% this week
-                </span>
+                <div
+                  style={{
+                    background: "rgba(255,255,255,0.2)",
+                    borderRadius: 20,
+                    padding: "3px 8px",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 4,
+                  }}
+                >
+                  <TrendingUp size={12} color="white" />
+                  <span style={{ color: "white", fontSize: 12, fontWeight: 600 }}>
+                    +{reputationGrowth.toFixed(1)}% this week
+                  </span>
+                </div>
               </div>
-            </div>
+            )}
           </div>
           <div
             style={{
@@ -312,65 +396,83 @@ export default function Home() {
             }}
           >
             <span style={{ color: "white", fontSize: 13, fontWeight: 700 }}>
-              Phase {phase}
+              {nodeState ? `Phase ${phase}` : "Unregistered"}
             </span>
           </div>
         </div>
 
         {/* Merit boost info */}
-        <div
-          style={{
-            background: "rgba(255,255,255,0.15)",
-            borderRadius: 14,
-            padding: "12px 14px",
-            backdropFilter: "blur(10px)",
-          }}
-        >
+        {nodeState && (
           <div
             style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
+              background: "rgba(255,255,255,0.15)",
+              borderRadius: 14,
+              padding: "12px 14px",
+              backdropFilter: "blur(10px)",
             }}
           >
-            <div>
-              <div
-                style={{
-                  color: "rgba(255,255,255,0.8)",
-                  fontSize: 11,
-                  fontWeight: 600,
-                  marginBottom: 2,
-                }}
-              >
-                Yield Multiplier
-              </div>
-              <div
-                style={{
-                  color: "white",
-                  fontSize: 18,
-                  fontWeight: 800,
-                }}
-              >
-                {meritBoost.toFixed(2)}x
-              </div>
-            </div>
             <div
               style={{
-                fontSize: 11,
-                color: "rgba(255,255,255,0.7)",
-                textAlign: "right",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
               }}
             >
-              Earn {Math.round((meritBoost - 1) * 100)}% more
-              <br />
-              on staking rewards
+              <div>
+                <div
+                  style={{
+                    color: "rgba(255,255,255,0.8)",
+                    fontSize: 11,
+                    fontWeight: 600,
+                    marginBottom: 2,
+                  }}
+                >
+                  Yield Multiplier
+                </div>
+                <div
+                  style={{
+                    color: "white",
+                    fontSize: 18,
+                    fontWeight: 800,
+                  }}
+                >
+                  {meritBoost.toFixed(2)}x
+                </div>
+              </div>
+              <div
+                style={{
+                  fontSize: 11,
+                  color: "rgba(255,255,255,0.7)",
+                  textAlign: "right",
+                }}
+              >
+                Earn {Math.round((meritBoost - 1) * 100)}% more
+                <br />
+                on staking rewards
+              </div>
             </div>
           </div>
-        </div>
+        )}
+
+        {/* Not registered message */}
+        {!nodeState && publicKey && (
+          <div
+            style={{
+              background: "rgba(255,255,255,0.15)",
+              borderRadius: 14,
+              padding: "12px 14px",
+              backdropFilter: "blur(10px)",
+            }}
+          >
+            <div style={{ color: "rgba(255,255,255,0.9)", fontSize: 13, fontWeight: 600 }}>
+              Connect your wallet and register to start earning reputation
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Merit Progress Cards — hidden once fully graduated */}
-      {!graduated && (
+      {!graduated && nodeState && (
         <div
           style={{
             display: "grid",
@@ -420,7 +522,7 @@ export default function Home() {
                 marginBottom: 3,
               }}
             >
-              {tasksCompleted}/5
+              {tasksCompleted}/{networkConfig?.nTasks || 20}
             </div>
             <div style={{ fontSize: 11, color: "#9CA3AF" }}>
               Phase {phase === 1 ? "1" : "Complete"}

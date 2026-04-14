@@ -1,6 +1,13 @@
 "use client";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useStore } from "@/store/useStore";
+import { useWallet, useConnection } from "@solana/wallet-adapter-react";
+import { AnchorProvider } from "@coral-xyz/anchor";
+import { PublicKey } from "@solana/web3.js";
+import { useNodeState } from "@/chain/accounts";
+import { vouchForNode } from "@/chain/instructions";
+import { getProgram, nodePda } from "@/chain/program";
+import { getExplorerUrl, shortenAddress, bpsToDecimal, isPhase } from "@/chain/utils";
 import { toast } from "sonner";
 import {
   Search,
@@ -9,48 +16,140 @@ import {
   AlertTriangle,
   CheckCircle,
   Lock,
+  ExternalLink,
+  Loader,
 } from "lucide-react";
-
-const ELIGIBLE_USERS = [
-  { wallet: "1fXr...3Nt7", taskScore: 0.95, rep: 0.45, phase: 1, tasksCompleted: 19, lastSeen: "2m ago",  isOnline: true  },
-  { wallet: "5gYo...0Cq6", taskScore: 0.90, rep: 0.38, phase: 1, tasksCompleted: 18, lastSeen: "6m ago",  isOnline: true  },
-  { wallet: "2nPs...5Kj1", taskScore: 0.85, rep: 0.32, phase: 1, tasksCompleted: 17, lastSeen: "14m ago", isOnline: true  },
-  { wallet: "6cDw...8Lm4", taskScore: 0.80, rep: 0.29, phase: 1, tasksCompleted: 16, lastSeen: "31m ago", isOnline: false },
-  { wallet: "0aJk...9Pz2", taskScore: 0.75, rep: 0.21, phase: 1, tasksCompleted: 15, lastSeen: "1h ago",  isOnline: false },
-  { wallet: "3mQr...1Bv8", taskScore: 0.70, rep: 0.18, phase: 1, tasksCompleted: 14, lastSeen: "2h ago",  isOnline: false },
-];
 
 export default function Vouch() {
   const { reputation, addActivity } = useStore();
+  const wallet = useWallet();
+  const { connection } = useConnection();
   const [search, setSearch] = useState("");
   const [modal, setModal] = useState(null);
   const [vouching, setVouching] = useState(false);
   const [vouched, setVouched] = useState({});
+  const [phase2Nodes, setPhase2Nodes] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch Phase 2 nodes from blockchain
+  useEffect(() => {
+    const fetchPhase2Nodes = async () => {
+      if (!wallet.publicKey) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        const provider = new AnchorProvider(
+          connection,
+          wallet as any,
+          { commitment: 'confirmed' }
+        );
+        const program = getProgram(provider);
+
+        // Query all NodeState accounts
+        const accounts = await program.account.nodeState.all();
+
+        // Filter for Phase 2 nodes only
+        const phase2 = accounts
+          .filter(acc => isPhase(acc.account.phase, 'phase2'))
+          .map(acc => ({
+            pubkey: acc.publicKey,
+            owner: acc.account.owner,
+            tasksCompleted: acc.account.tasksPassed,
+            nTasks: acc.account.nTasks,
+            reputation: bpsToDecimal(acc.account.reputationBps),
+            taskScore: acc.account.tasksPassed / acc.account.nTasks,
+            phase: 2,
+            isOnline: true, // Could be enhanced with real-time data
+            lastSeen: "recently",
+          }));
+
+        setPhase2Nodes(phase2);
+      } catch (err) {
+        console.error('Error fetching Phase 2 nodes:', err);
+        toast.error('Failed to load eligible nodes');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPhase2Nodes();
+  }, [wallet.publicKey, connection]);
 
   const canVouch = reputation >= 0.7;
   const stakeAmount = 2.5;
 
-  const filtered = ELIGIBLE_USERS.filter(
-    (u) => !search || u.wallet.toLowerCase().includes(search.toLowerCase()),
+  const filtered = phase2Nodes.filter(
+    (u) => !search || u.owner.toString().toLowerCase().includes(search.toLowerCase()),
   );
 
   const handleVouch = useCallback(async () => {
-    if (!modal) return;
+    if (!modal || !wallet.publicKey) return;
+    
     setVouching(true);
-    await new Promise((r) => setTimeout(r, 1800));
-    setVouched((prev) => ({ ...prev, [modal.wallet]: true }));
-    addActivity({
-      id: Date.now(),
-      type: "vouch",
-      message: `Vouched for ${modal.wallet} · ${stakeAmount} SOL staked`,
-      time: "just now",
-    });
-    toast.success("Vouch submitted!", {
-      description: `${stakeAmount} SOL staked on ${modal.wallet}`,
-    });
-    setVouching(false);
-    setModal(null);
-  }, [modal, addActivity, stakeAmount]);
+    try {
+      const provider = new AnchorProvider(
+        connection,
+        wallet as any,
+        { commitment: 'confirmed' }
+      );
+
+      // Call vouchForNode instruction
+      const signature = await vouchForNode(provider, modal.owner);
+      
+      // Store vouched state with transaction signature
+      setVouched((prev) => ({ 
+        ...prev, 
+        [modal.owner.toString()]: { signature, timestamp: Date.now() } 
+      }));
+
+      const explorerUrl = getExplorerUrl(signature, 'devnet');
+      
+      addActivity({
+        id: Date.now(),
+        type: "vouch",
+        message: `Vouched for ${shortenAddress(modal.owner)} · ${stakeAmount} SOL staked`,
+        time: "just now",
+      });
+
+      toast.success("Vouch submitted!", {
+        description: (
+          <div>
+            <div>{stakeAmount} SOL staked on {shortenAddress(modal.owner)}</div>
+            <a 
+              href={explorerUrl} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              style={{ color: '#0052FF', textDecoration: 'underline', display: 'flex', alignItems: 'center', gap: 4, marginTop: 4 }}
+            >
+              View on Explorer <ExternalLink size={12} />
+            </a>
+          </div>
+        ),
+      });
+    } catch (err) {
+      console.error('Vouch error:', err);
+      toast.error('Vouch failed', {
+        description: err?.message || 'Transaction failed',
+      });
+    } finally {
+      setVouching(false);
+      setModal(null);
+    }
+  }, [modal, wallet, connection, addActivity, stakeAmount]);
+
+  if (loading) {
+    return (
+      <div style={{ padding: "20px 16px 0", textAlign: "center" }}>
+        <Loader size={32} color="#0052FF" style={{ animation: "spin 1s linear infinite" }} />
+        <div style={{ fontSize: 14, color: "#6B7280", marginTop: 12 }}>
+          Loading eligible nodes...
+        </div>
+      </div>
+    );
+  }
 
   if (!canVouch)
     return (
@@ -156,6 +255,10 @@ export default function Vouch() {
           50%       { opacity: 0.55; transform: scale(1.35); }
         }
         .online-dot { animation: pulse-dot 1.8s ease-in-out infinite; }
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
       `}</style>
 
       <div style={{ marginBottom: 16 }}>
@@ -165,7 +268,7 @@ export default function Vouch() {
           <div style={{ display: "flex", alignItems: "center", gap: 6, background: "#ECFDF5", borderRadius: 20, padding: "4px 10px" }}>
             <div className="online-dot" style={{ width: 7, height: 7, borderRadius: "50%", background: "#05C48F" }} />
             <span style={{ fontSize: 11, fontWeight: 700, color: "#05C48F" }}>
-              {ELIGIBLE_USERS.filter(u => u.isOnline).length} active now
+              {phase2Nodes.filter(u => u.isOnline).length} active now
             </span>
           </div>
         </div>
@@ -233,149 +336,161 @@ export default function Vouch() {
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {filtered.map((user) => {
-          const done = vouched[user.wallet];
-          return (
-            <div
-              key={user.wallet}
-              style={{
-                background: "white",
-                borderRadius: 18,
-                padding: "14px 16px",
-                boxShadow: user.isOnline
-                  ? "0 0 0 1.5px #05C48F30, 0 2px 10px rgba(0,0,0,0.06)"
-                  : "0 1px 6px rgba(0,0,0,0.06)",
-                display: "flex",
-                alignItems: "center",
-                gap: 12,
-              }}
-            >
-              {/* Avatar with online ring */}
-              <div style={{ position: "relative", flexShrink: 0 }}>
-                <div
-                  style={{
-                    width: 46,
-                    height: 46,
-                    borderRadius: 14,
-                    background: `hsl(${(user.wallet.charCodeAt(0) * 7) % 360},55%,52%)`,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <span style={{ color: "white", fontSize: 14, fontWeight: 800 }}>
-                    {user.wallet.slice(0, 2)}
-                  </span>
-                </div>
-                {user.isOnline && (
-                  <div
-                    className="online-dot"
-                    style={{
-                      position: "absolute",
-                      bottom: 0,
-                      right: 0,
-                      width: 11,
-                      height: 11,
-                      borderRadius: "50%",
-                      background: "#05C48F",
-                      border: "2px solid white",
-                    }}
-                  />
-                )}
-              </div>
-
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: "#0D1421" }}>
-                    {user.wallet}
-                  </div>
-                </div>
-                <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 1 }}>
-                  {user.tasksCompleted}/20 tasks · Rep {Math.round(user.rep * 100)}%
-                  {" · "}
-                  <span style={{ color: user.isOnline ? "#05C48F" : "#D1D5DB", fontWeight: 600 }}>
-                    {user.isOnline ? `Active ${user.lastSeen}` : `Last seen ${user.lastSeen}`}
-                  </span>
-                </div>
-                <div
-                  style={{
-                    height: 3,
-                    background: "#F3F4F6",
-                    borderRadius: 2,
-                    marginTop: 6,
-                    overflow: "hidden",
-                  }}
-                >
-                  <div
-                    style={{
-                      height: "100%",
-                      background: user.isOnline ? "#05C48F" : "#0052FF",
-                      borderRadius: 2,
-                      width: `${Math.round(user.taskScore * 100)}%`,
-                    }}
-                  />
-                </div>
-              </div>
+        {filtered.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "40px 20px", color: "#9CA3AF" }}>
+            <div style={{ fontSize: 14, fontWeight: 600 }}>No Phase 2 nodes found</div>
+            <div style={{ fontSize: 12, marginTop: 4 }}>
+              {search ? "Try a different search" : "Check back later for eligible candidates"}
+            </div>
+          </div>
+        ) : (
+          filtered.map((user) => {
+            const ownerStr = user.owner.toString();
+            const done = vouched[ownerStr];
+            const displayAddress = shortenAddress(user.owner, 4);
+            
+            return (
               <div
+                key={ownerStr}
                 style={{
+                  background: "white",
+                  borderRadius: 18,
+                  padding: "14px 16px",
+                  boxShadow: user.isOnline
+                    ? "0 0 0 1.5px #05C48F30, 0 2px 10px rgba(0,0,0,0.06)"
+                    : "0 1px 6px rgba(0,0,0,0.06)",
                   display: "flex",
-                  flexDirection: "column",
-                  alignItems: "flex-end",
-                  gap: 8,
+                  alignItems: "center",
+                  gap: 12,
                 }}
               >
-                <div
-                  style={{
-                    background: "#EEF3FF",
-                    borderRadius: 10,
-                    padding: "3px 9px",
-                  }}
-                >
-                  <span
-                    style={{ fontSize: 12, fontWeight: 700, color: "#0052FF" }}
-                  >
-                    {Math.round(user.taskScore * 100)}%
-                  </span>
-                </div>
-                {done ? (
+                {/* Avatar with online ring */}
+                <div style={{ position: "relative", flexShrink: 0 }}>
                   <div
-                    style={{ display: "flex", alignItems: "center", gap: 4 }}
-                  >
-                    <CheckCircle size={13} color="#05C48F" />
-                    <span
-                      style={{
-                        fontSize: 11,
-                        color: "#05C48F",
-                        fontWeight: 600,
-                      }}
-                    >
-                      Vouched
-                    </span>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => setModal(user)}
                     style={{
-                      background: "#0052FF",
-                      color: "white",
-                      border: "none",
-                      borderRadius: 10,
-                      padding: "7px 14px",
-                      fontSize: 12,
-                      fontWeight: 700,
-                      cursor: "pointer",
+                      width: 46,
+                      height: 46,
+                      borderRadius: 14,
+                      background: `hsl(${(ownerStr.charCodeAt(0) * 7) % 360},55%,52%)`,
                       display: "flex",
                       alignItems: "center",
-                      gap: 4,
+                      justifyContent: "center",
                     }}
                   >
-                    <Shield size={11} /> Vouch
-                  </button>
-                )}
+                    <span style={{ color: "white", fontSize: 14, fontWeight: 800 }}>
+                      {ownerStr.slice(0, 2)}
+                    </span>
+                  </div>
+                  {user.isOnline && (
+                    <div
+                      className="online-dot"
+                      style={{
+                        position: "absolute",
+                        bottom: 0,
+                        right: 0,
+                        width: 11,
+                        height: 11,
+                        borderRadius: "50%",
+                        background: "#05C48F",
+                        border: "2px solid white",
+                      }}
+                    />
+                  )}
+                </div>
+
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: "#0D1421" }}>
+                      {displayAddress}
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 1 }}>
+                    {user.tasksCompleted}/{user.nTasks} tasks · Rep {Math.round(user.reputation * 100)}%
+                    {" · "}
+                    <span style={{ color: user.isOnline ? "#05C48F" : "#D1D5DB", fontWeight: 600 }}>
+                      {user.isOnline ? `Active ${user.lastSeen}` : `Last seen ${user.lastSeen}`}
+                    </span>
+                  </div>
+                  <div
+                    style={{
+                      height: 3,
+                      background: "#F3F4F6",
+                      borderRadius: 2,
+                      marginTop: 6,
+                      overflow: "hidden",
+                    }}
+                  >
+                    <div
+                      style={{
+                        height: "100%",
+                        background: user.isOnline ? "#05C48F" : "#0052FF",
+                        borderRadius: 2,
+                        width: `${Math.round(user.taskScore * 100)}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "flex-end",
+                    gap: 8,
+                  }}
+                >
+                  <div
+                    style={{
+                      background: "#EEF3FF",
+                      borderRadius: 10,
+                      padding: "3px 9px",
+                    }}
+                  >
+                    <span
+                      style={{ fontSize: 12, fontWeight: 700, color: "#0052FF" }}
+                    >
+                      {Math.round(user.taskScore * 100)}%
+                    </span>
+                  </div>
+                  {done ? (
+                    <div
+                      style={{ display: "flex", alignItems: "center", gap: 4 }}
+                    >
+                      <CheckCircle size={13} color="#05C48F" />
+                      <span
+                        style={{
+                          fontSize: 11,
+                          color: "#05C48F",
+                          fontWeight: 600,
+                        }}
+                      >
+                        Vouched
+                      </span>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setModal(user)}
+                      style={{
+                        background: "#0052FF",
+                        color: "white",
+                        border: "none",
+                        borderRadius: 10,
+                        padding: "7px 14px",
+                        fontSize: 12,
+                        fontWeight: 700,
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 4,
+                      }}
+                    >
+                      <Shield size={11} /> Vouch
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })
+        )}
       </div>
 
       {/* Modal */}
@@ -459,7 +574,7 @@ export default function Vouch() {
                   width: 44,
                   height: 44,
                   borderRadius: 12,
-                  background: `hsl(${(modal.wallet.charCodeAt(0) * 7) % 360},55%,52%)`,
+                  background: `hsl(${(modal.owner.toString().charCodeAt(0) * 7) % 360},55%,52%)`,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -467,17 +582,17 @@ export default function Vouch() {
                 }}
               >
                 <span style={{ color: "white", fontSize: 14, fontWeight: 800 }}>
-                  {modal.wallet.slice(0, 2)}
+                  {modal.owner.toString().slice(0, 2)}
                 </span>
               </div>
               <div>
                 <div
                   style={{ fontSize: 14, fontWeight: 700, color: "#0D1421" }}
                 >
-                  {modal.wallet}
+                  {shortenAddress(modal.owner, 4)}
                 </div>
                 <div style={{ fontSize: 12, color: "#9CA3AF" }}>
-                  {modal.tasksCompleted}/20 tasks · Phase {modal.phase}
+                  {modal.tasksCompleted}/{modal.nTasks} tasks · Phase {modal.phase}
                 </div>
               </div>
             </div>

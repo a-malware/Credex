@@ -33,6 +33,7 @@ import { serializeError } from 'serialize-error';
 import { Toaster, toast } from 'sonner';
 import { useDevServerHeartbeat } from '../__create/useDevServerHeartbeat';
 import type { Route } from './+types/root';
+import { SolanaWalletProvider } from '../chain/wallet-provider';
 
 export const links = () => [];
 
@@ -455,7 +456,9 @@ export function Layout({ children }: { children: ReactNode }) {
 export default function App() {
   return (
     <SessionProvider>
-      <Outlet />
+      <SolanaWalletProvider>
+        <Outlet />
+      </SolanaWalletProvider>
     </SessionProvider>
   );
 }

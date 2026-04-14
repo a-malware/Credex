@@ -1,0 +1,2188 @@
+{
+  "address": "CFK9b4RXvcmJKfxodF5HNshWGfkvoQ2iAaN9eyRJnGfh",
+  "metadata": {
+    "name": "coldstart_por",
+    "version": "0.1.0",
+    "spec": "0.1.0"
+  },
+  "instructions": [
+    {
+      "name": "advance_round",
+      "docs": [
+        "Authority increments the consensus round counter.",
+        "",
+        "In a real PoR chain this would be triggered automatically by the",
+        "consensus protocol after each block is finalised."
+      ],
+      "discriminator": [
+        230,
+        88,
+        119,
+        80,
+        54,
+        4,
+        212,
+        250
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "bootstrap_genesis_node",
+      "docs": [
+        "Authority-only: create a genesis node with a pre-assigned reputation.",
+        "",
+        "This is the *only* centralised step in the protocol.  It is used",
+        "exclusively to seed the initial set of full participants from which",
+        "future nodes can obtain vouching.  The paper explicitly acknowledges",
+        "that genesis-block assignment is unavoidable for the very first nodes",
+        "(§II-B).  After genesis nodes are seeded, the system operates in a",
+        "fully decentralised manner.",
+        "",
+        "# Parameters",
+        "- `initial_reputation_bps` — starting R ∈ [0, SCALE]"
+      ],
+      "discriminator": [
+        8,
+        18,
+        17,
+        196,
+        104,
+        177,
+        151,
+        206
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "docs": [
+            "Must be the network authority."
+          ],
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "node_owner"
+        },
+        {
+          "name": "node_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  110,
+                  111,
+                  100,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "node_owner"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "initial_reputation_bps",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "cast_vote",
+      "docs": [
+        "Record a consensus vote for the current round.",
+        "",
+        "This instruction only records that the node voted in this round.",
+        "Reputation updates and graduation logic are handled separately by",
+        "the record_round_outcome instruction, which requires committee confirmation.",
+        "",
+        "Phase-3 and Full nodes may cast votes. The actual outcome (honest/dishonest)",
+        "is determined off-chain and confirmed by a committee of Full nodes.",
+        "",
+        "# Parameters",
+        "- `round`  — must equal config.current_round"
+      ],
+      "discriminator": [
+        20,
+        212,
+        15,
+        189,
+        69,
+        180,
+        69,
+        151
+      ],
+      "accounts": [
+        {
+          "name": "owner",
+          "signer": true
+        },
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "node_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  110,
+                  111,
+                  100,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "owner"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "round",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "execute_slash",
+      "docs": [
+        "Execute a slash once votes >= 3.",
+        "",
+        "Result:",
+        "- Candidate is permanently Banned (R → 0).",
+        "- Voucher's staked reputation is slashed (not returned).",
+        "- VouchRecord is settled (active → false).",
+        "- SlashVote is deactivated."
+      ],
+      "discriminator": [
+        15,
+        240,
+        38,
+        73,
+        175,
+        55,
+        88,
+        55
+      ],
+      "accounts": [
+        {
+          "name": "executor",
+          "docs": [
+            "Anyone can execute once threshold is reached"
+          ],
+          "signer": true
+        },
+        {
+          "name": "slash_vote",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  108,
+                  97,
+                  115,
+                  104,
+                  95,
+                  118,
+                  111,
+                  116,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "slash_vote.candidate",
+                "account": "SlashVote"
+              }
+            ]
+          }
+        },
+        {
+          "name": "candidate_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  110,
+                  111,
+                  100,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "candidate_state.owner",
+                "account": "NodeState"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vouch_record",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  111,
+                  117,
+                  99,
+                  104
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "vouch_record.voucher",
+                "account": "VouchRecord"
+              },
+              {
+                "kind": "account",
+                "path": "candidate_state.owner",
+                "account": "NodeState"
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "initialize_network",
+      "docs": [
+        "Deploy the PoR network with configurable protocol parameters.",
+        "",
+        "Called once by the network authority.  All parameters are stored in the",
+        "global `NetworkConfig` PDA.  Pass `0` for any parameter to use the",
+        "paper's default values.",
+        "",
+        "# Parameters",
+        "- `delta_bps`   — Vouching stake fraction δ in BPS (default 1_500 = 0.15)",
+        "- `alpha_bps`   — Dampening factor α in BPS (default 5_000 = 0.50)",
+        "- `theta_p_bps` — Probationary pass threshold θ_P in BPS (default 9_000 = 0.90)",
+        "- `tau_v_bps`   — Voucher eligibility threshold τ_v in BPS (default 4_000 = 0.40)",
+        "- `lambda_bps`  — Time-decay λ in BPS (default 8_000 = 0.80)",
+        "- `n_tasks`     — Number of Phase-1 tasks N (default 20)",
+        "- `m_rounds`    — Phase-3 graduation rounds M (default 10)"
+      ],
+      "discriminator": [
+        75,
+        50,
+        251,
+        50,
+        0,
+        159,
+        20,
+        5
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "delta_bps",
+          "type": "u64"
+        },
+        {
+          "name": "alpha_bps",
+          "type": "u64"
+        },
+        {
+          "name": "theta_p_bps",
+          "type": "u64"
+        },
+        {
+          "name": "tau_v_bps",
+          "type": "u64"
+        },
+        {
+          "name": "lambda_bps",
+          "type": "u64"
+        },
+        {
+          "name": "n_tasks",
+          "type": "u8"
+        },
+        {
+          "name": "m_rounds",
+          "type": "u8"
+        },
+        {
+          "name": "task_merkle_root",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "merkle_depth",
+          "type": "u8"
+        }
+      ]
+    },
+    {
+      "name": "propose_slash",
+      "docs": [
+        "Authority reports misbehaviour by a Phase-3 node.",
+        "Propose slashing a misbehaving node (requires Full node status).",
+        "",
+        "Creates a SlashVote account with votes = 1. Other Full nodes can",
+        "vote using vote_slash. Once votes >= 3, execute_slash can be called."
+      ],
+      "discriminator": [
+        198,
+        144,
+        128,
+        49,
+        72,
+        78,
+        74,
+        118
+      ],
+      "accounts": [
+        {
+          "name": "proposer",
+          "docs": [
+            "The Full node proposing the slash"
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "proposer_state",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  110,
+                  111,
+                  100,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "proposer"
+              }
+            ]
+          }
+        },
+        {
+          "name": "candidate_state",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  110,
+                  111,
+                  100,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "candidate_state.owner",
+                "account": "NodeState"
+              }
+            ]
+          }
+        },
+        {
+          "name": "slash_vote",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  108,
+                  97,
+                  115,
+                  104,
+                  95,
+                  118,
+                  111,
+                  116,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "candidate_state.owner",
+                "account": "NodeState"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "record_round_outcome",
+      "docs": [
+        "Record the outcome of a voting round with committee confirmation.",
+        "",
+        "This instruction requires signatures from the authority plus 2 Full nodes",
+        "(cosigners) to confirm whether a node's vote was honest or dishonest.",
+        "It updates reputation using Eq. 4 and handles Phase 3 graduation.",
+        "",
+        "Eq. 4:  R(t+1) = λ · R(t) + (1−λ) · h(t)",
+        "",
+        "where h(t) ∈ {0, 1} is the honesty indicator (1 = honest, 0 = dishonest).",
+        "",
+        "# Parameters",
+        "- `round` — the round being confirmed (must be < current_round)",
+        "- `was_honest` — whether the node's vote was honest (true) or dishonest (false)"
+      ],
+      "discriminator": [
+        122,
+        192,
+        214,
+        164,
+        179,
+        8,
+        198,
+        195
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "docs": [
+            "Network authority initiates the outcome recording"
+          ],
+          "signer": true,
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "cosigner_1",
+          "docs": [
+            "First cosigner - must be a Full node"
+          ],
+          "signer": true
+        },
+        {
+          "name": "cosigner_2",
+          "docs": [
+            "Second cosigner - must be a Full node"
+          ],
+          "signer": true
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "cosigner_1_state",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  110,
+                  111,
+                  100,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "cosigner_1"
+              }
+            ]
+          }
+        },
+        {
+          "name": "cosigner_2_state",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  110,
+                  111,
+                  100,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "cosigner_2"
+              }
+            ]
+          }
+        },
+        {
+          "name": "target_node",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  110,
+                  111,
+                  100,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "target_node.owner",
+                "account": "NodeState"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "round",
+          "type": "u64"
+        },
+        {
+          "name": "was_honest",
+          "type": "bool"
+        }
+      ]
+    },
+    {
+      "name": "register_node",
+      "docs": [
+        "A new node self-registers to enter Phase 1 (Probationary Tasks).",
+        "",
+        "No stake or prior reputation required.  The node's account is",
+        "initialised with reputation = 0 and phase = Phase1."
+      ],
+      "discriminator": [
+        102,
+        85,
+        117,
+        114,
+        194,
+        188,
+        211,
+        168
+      ],
+      "accounts": [
+        {
+          "name": "owner",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "node_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  110,
+                  111,
+                  100,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "owner"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "release_voucher_stake",
+      "docs": [
+        "Voucher reclaims the reputation stake after the candidate has graduated.",
+        "",
+        "Can only be called once per VouchRecord (active=true → false).",
+        "The voucher's reputation is restored by `staked_reputation_bps`."
+      ],
+      "discriminator": [
+        76,
+        62,
+        68,
+        165,
+        182,
+        126,
+        162,
+        65
+      ],
+      "accounts": [
+        {
+          "name": "voucher_owner",
+          "docs": [
+            "The voucher reclaims their stake — must sign."
+          ],
+          "signer": true
+        },
+        {
+          "name": "voucher_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  110,
+                  111,
+                  100,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "voucher_owner"
+              }
+            ]
+          }
+        },
+        {
+          "name": "candidate_state",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  110,
+                  111,
+                  100,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "candidate_state.owner",
+                "account": "NodeState"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vouch_record",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  111,
+                  117,
+                  99,
+                  104
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "voucher_owner"
+              },
+              {
+                "kind": "account",
+                "path": "candidate_state.owner",
+                "account": "NodeState"
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "submit_task_proof",
+      "docs": [
+        "Submit a verifiable proof for one Phase-1 micro-task (Eq. 1).",
+        "",
+        "Tasks must be submitted in order (task 0, then 1, …, then N−1).",
+        "",
+        "## Proof mechanism",
+        "The proof is a Merkle inclusion proof demonstrating that leaf_data",
+        "is included in the task Merkle tree stored in NetworkConfig.",
+        "This verifies that the task data comes from a real-world verifiable",
+        "source (Solana block hashes) rather than arbitrary computation.",
+        "",
+        "After all N tasks:",
+        "P = tasks_passed / n_tasks  (Eq. 1)",
+        "",
+        "If P ≥ θ_P  → advance to Phase 2.",
+        "Otherwise   → node is Banned (rejected).",
+        "",
+        "# Parameters",
+        "- `task_index` — which task is being submitted (must equal tasks_completed)",
+        "- `leaf_data`  — 32-byte leaf data (e.g., Solana block hash)",
+        "- `proof`      — Merkle proof path (array of sibling hashes)"
+      ],
+      "discriminator": [
+        97,
+        74,
+        69,
+        41,
+        78,
+        234,
+        159,
+        80
+      ],
+      "accounts": [
+        {
+          "name": "owner",
+          "docs": [
+            "The candidate node's wallet — must sign each task submission."
+          ],
+          "signer": true
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "node_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  110,
+                  111,
+                  100,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "owner"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "task_index",
+          "type": "u8"
+        },
+        {
+          "name": "leaf_data",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "proof",
+          "type": {
+            "vec": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "vote_slash",
+      "docs": [
+        "Add a vote to an existing slash proposal (requires Full node status).",
+        "",
+        "Voter must not have already voted. Increments vote count."
+      ],
+      "discriminator": [
+        222,
+        209,
+        102,
+        88,
+        182,
+        162,
+        73,
+        119
+      ],
+      "accounts": [
+        {
+          "name": "voter",
+          "docs": [
+            "A Full node voting on the slash proposal"
+          ],
+          "signer": true
+        },
+        {
+          "name": "voter_state",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  110,
+                  111,
+                  100,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "voter"
+              }
+            ]
+          }
+        },
+        {
+          "name": "slash_vote",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  108,
+                  97,
+                  115,
+                  104,
+                  95,
+                  118,
+                  111,
+                  116,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "slash_vote.candidate",
+                "account": "SlashVote"
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "vouch_for_node",
+      "docs": [
+        "An eligible full node stakes δ · R_s of its reputation to vouch for a",
+        "Phase-2 candidate (Eq. 2 & Eq. 3).",
+        "",
+        "Eq. 2:  R'_s = R_s · (1 − δ)          [voucher's rep after staking]",
+        "Eq. 3:  R_new(0) = α · R_s · δ         [candidate's initial rep]",
+        "",
+        "The staked amount δ · R_s is deducted from the voucher immediately and",
+        "stored in the `VouchRecord`.  It is returned if the candidate graduates",
+        "or slashed if the candidate misbehaves.",
+        "",
+        "Only one active vouch per candidate is allowed."
+      ],
+      "discriminator": [
+        230,
+        6,
+        182,
+        39,
+        149,
+        144,
+        74,
+        188
+      ],
+      "accounts": [
+        {
+          "name": "voucher_owner",
+          "docs": [
+            "The established node performing the vouch."
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "voucher_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  110,
+                  111,
+                  100,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "voucher_owner"
+              }
+            ]
+          }
+        },
+        {
+          "name": "candidate_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  110,
+                  111,
+                  100,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "candidate_state.owner",
+                "account": "NodeState"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vouch_record",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  111,
+                  117,
+                  99,
+                  104
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "voucher_owner"
+              },
+              {
+                "kind": "account",
+                "path": "candidate_state.owner",
+                "account": "NodeState"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    }
+  ],
+  "accounts": [
+    {
+      "name": "NetworkConfig",
+      "discriminator": [
+        94,
+        196,
+        151,
+        231,
+        223,
+        121,
+        86,
+        163
+      ]
+    },
+    {
+      "name": "NodeState",
+      "discriminator": [
+        8,
+        21,
+        101,
+        224,
+        245,
+        142,
+        157,
+        156
+      ]
+    },
+    {
+      "name": "SlashVote",
+      "discriminator": [
+        21,
+        49,
+        15,
+        150,
+        53,
+        173,
+        38,
+        169
+      ]
+    },
+    {
+      "name": "VouchRecord",
+      "discriminator": [
+        17,
+        193,
+        183,
+        51,
+        0,
+        197,
+        20,
+        55
+      ]
+    }
+  ],
+  "events": [
+    {
+      "name": "MisbehaviorReported",
+      "discriminator": [
+        91,
+        186,
+        148,
+        84,
+        59,
+        37,
+        9,
+        214
+      ]
+    },
+    {
+      "name": "NetworkInitialized",
+      "discriminator": [
+        248,
+        98,
+        167,
+        253,
+        2,
+        186,
+        222,
+        90
+      ]
+    },
+    {
+      "name": "NodeBootstrapped",
+      "discriminator": [
+        31,
+        66,
+        198,
+        99,
+        176,
+        68,
+        68,
+        157
+      ]
+    },
+    {
+      "name": "NodeGraduated",
+      "discriminator": [
+        175,
+        105,
+        96,
+        50,
+        119,
+        83,
+        226,
+        144
+      ]
+    },
+    {
+      "name": "NodeRegistered",
+      "discriminator": [
+        15,
+        57,
+        183,
+        59,
+        93,
+        55,
+        157,
+        195
+      ]
+    },
+    {
+      "name": "NodeRejected",
+      "discriminator": [
+        144,
+        251,
+        203,
+        172,
+        0,
+        213,
+        19,
+        138
+      ]
+    },
+    {
+      "name": "PhaseAdvanced",
+      "discriminator": [
+        123,
+        52,
+        118,
+        23,
+        154,
+        234,
+        206,
+        41
+      ]
+    },
+    {
+      "name": "RoundAdvanced",
+      "discriminator": [
+        215,
+        177,
+        143,
+        241,
+        202,
+        145,
+        181,
+        213
+      ]
+    },
+    {
+      "name": "RoundOutcomeRecorded",
+      "discriminator": [
+        126,
+        119,
+        244,
+        95,
+        167,
+        166,
+        218,
+        47
+      ]
+    },
+    {
+      "name": "SlashExecuted",
+      "discriminator": [
+        170,
+        48,
+        78,
+        119,
+        242,
+        155,
+        108,
+        61
+      ]
+    },
+    {
+      "name": "SlashProposed",
+      "discriminator": [
+        158,
+        90,
+        179,
+        8,
+        227,
+        190,
+        15,
+        231
+      ]
+    },
+    {
+      "name": "SlashVoteAdded",
+      "discriminator": [
+        166,
+        174,
+        246,
+        34,
+        190,
+        44,
+        218,
+        103
+      ]
+    },
+    {
+      "name": "StakeReleased",
+      "discriminator": [
+        7,
+        221,
+        192,
+        32,
+        123,
+        29,
+        96,
+        45
+      ]
+    },
+    {
+      "name": "TaskSubmitted",
+      "discriminator": [
+        39,
+        29,
+        92,
+        117,
+        184,
+        101,
+        14,
+        126
+      ]
+    },
+    {
+      "name": "VoteCast",
+      "discriminator": [
+        39,
+        53,
+        195,
+        104,
+        188,
+        17,
+        225,
+        213
+      ]
+    },
+    {
+      "name": "VouchingCompleted",
+      "discriminator": [
+        80,
+        239,
+        234,
+        230,
+        250,
+        181,
+        44,
+        47
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "Unauthorized",
+      "msg": "Caller is not the network authority"
+    },
+    {
+      "code": 6001,
+      "name": "WrongPhase",
+      "msg": "Node is not in the required phase for this instruction"
+    },
+    {
+      "code": 6002,
+      "name": "InvalidTaskIndex",
+      "msg": "Task index is out of range"
+    },
+    {
+      "code": 6003,
+      "name": "TaskOutOfOrder",
+      "msg": "Tasks must be submitted sequentially"
+    },
+    {
+      "code": 6004,
+      "name": "InvalidReputation",
+      "msg": "Reputation value out of [0, SCALE] range"
+    },
+    {
+      "code": 6005,
+      "name": "VoucherReputationTooLow",
+      "msg": "Voucher reputation is below the minimum threshold τ_v"
+    },
+    {
+      "code": 6006,
+      "name": "VoucherNotEligible",
+      "msg": "Voucher node is not a Full participant"
+    },
+    {
+      "code": 6007,
+      "name": "AlreadyVouched",
+      "msg": "Candidate already has an active voucher"
+    },
+    {
+      "code": 6008,
+      "name": "CandidateNotGraduated",
+      "msg": "Candidate has not yet graduated to Full status"
+    },
+    {
+      "code": 6009,
+      "name": "VouchAlreadySettled",
+      "msg": "This vouch record has already been settled (released or slashed)"
+    },
+    {
+      "code": 6010,
+      "name": "InvalidRound",
+      "msg": "Round number does not match the current consensus round"
+    },
+    {
+      "code": 6011,
+      "name": "InvalidParameter",
+      "msg": "BPS parameter must be in range [1, 10_000]"
+    },
+    {
+      "code": 6012,
+      "name": "NodeBanned",
+      "msg": "Node has been permanently banned"
+    }
+  ],
+  "types": [
+    {
+      "name": "MisbehaviorReported",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "candidate",
+            "type": "pubkey"
+          },
+          {
+            "name": "voucher",
+            "type": "pubkey"
+          },
+          {
+            "name": "slashed_bps",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "NetworkConfig",
+      "docs": [
+        "Global network configuration — one per deployment.",
+        "PDA seeds: [\"config\"]"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "authority",
+            "docs": [
+              "Network authority — may bootstrap genesis nodes and advance rounds."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "delta_bps",
+            "docs": [
+              "δ — fraction of voucher's reputation staked as collateral (BPS).",
+              "Recommended range: [1_000, 2_000] i.e. [0.10, 0.20]. (paper: 1_500)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "alpha_bps",
+            "docs": [
+              "α — dampening factor preventing reputation inflation (BPS). (paper: 5_000)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "theta_p_bps",
+            "docs": [
+              "θ_P — minimum probationary score to advance from Phase 1 (BPS). (paper: 9_000)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "tau_v_bps",
+            "docs": [
+              "τ_v — minimum reputation for a node to be eligible as a voucher (BPS). (paper: 4_000)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "lambda_bps",
+            "docs": [
+              "λ — exponential time-decay weight in the reputation update rule (BPS). (~8_000)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "n_tasks",
+            "docs": [
+              "N — number of micro-tasks in Phase 1. (paper: 20)"
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "m_rounds",
+            "docs": [
+              "M — number of honest consensus rounds required to graduate Phase 3. (paper: 10)"
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "current_round",
+            "docs": [
+              "Monotonically increasing consensus round counter."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "total_nodes",
+            "docs": [
+              "Total nodes ever registered (including banned/rejected)."
+            ],
+            "type": "u32"
+          },
+          {
+            "name": "task_merkle_root",
+            "docs": [
+              "Merkle root for task verification (Solana block hashes)."
+            ],
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "merkle_depth",
+            "docs": [
+              "Depth of the Merkle tree used for task verification."
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "bump",
+            "docs": [
+              "PDA bump."
+            ],
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "NetworkInitialized",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "delta_bps",
+            "type": "u64"
+          },
+          {
+            "name": "alpha_bps",
+            "type": "u64"
+          },
+          {
+            "name": "theta_p_bps",
+            "type": "u64"
+          },
+          {
+            "name": "tau_v_bps",
+            "type": "u64"
+          },
+          {
+            "name": "n_tasks",
+            "type": "u8"
+          },
+          {
+            "name": "m_rounds",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "NodeBootstrapped",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "node",
+            "type": "pubkey"
+          },
+          {
+            "name": "reputation_bps",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "NodeGraduated",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "node",
+            "type": "pubkey"
+          },
+          {
+            "name": "final_reputation_bps",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "NodePhase",
+      "docs": [
+        "Lifecycle phase of a node in the ColdStart-PoR protocol."
+      ],
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Phase1"
+          },
+          {
+            "name": "Phase2"
+          },
+          {
+            "name": "Phase3"
+          },
+          {
+            "name": "Full"
+          },
+          {
+            "name": "Banned"
+          }
+        ]
+      }
+    },
+    {
+      "name": "NodeRegistered",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "node",
+            "type": "pubkey"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "NodeRejected",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "node",
+            "type": "pubkey"
+          },
+          {
+            "name": "probationary_score_bps",
+            "type": "u64"
+          },
+          {
+            "name": "threshold_bps",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "NodeState",
+      "docs": [
+        "Per-node state account.",
+        "PDA seeds: [\"node\", owner.key()]"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "owner",
+            "docs": [
+              "The wallet that controls this node."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "reputation_bps",
+            "docs": [
+              "Current reputation score R_i ∈ [0, SCALE] in BPS."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "phase",
+            "docs": [
+              "Current lifecycle phase."
+            ],
+            "type": {
+              "defined": {
+                "name": "NodePhase"
+              }
+            }
+          },
+          {
+            "name": "tasks_completed",
+            "docs": [
+              "Number of Phase-1 tasks submitted so far."
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "tasks_passed",
+            "docs": [
+              "Number of Phase-1 tasks whose proofs were validated."
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "honest_rounds",
+            "docs": [
+              "Number of honest consensus rounds completed in Phase 3."
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "voucher",
+            "docs": [
+              "Pubkey of the node that vouched for this node (set in Phase 2)."
+            ],
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "staked_reputation_bps",
+            "docs": [
+              "Reputation staked by the voucher on behalf of this node (held here",
+              "for bookkeeping; canonical record is in VouchRecord)."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "last_voted_round",
+            "docs": [
+              "Tracks the last round in which this node cast a vote (prevents double voting)."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "docs": [
+              "PDA bump."
+            ],
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PhaseAdvanced",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "node",
+            "type": "pubkey"
+          },
+          {
+            "name": "from_phase",
+            "type": "u8"
+          },
+          {
+            "name": "to_phase",
+            "type": "u8"
+          },
+          {
+            "name": "score_bps",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "RoundAdvanced",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "new_round",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "RoundOutcomeRecorded",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "node",
+            "type": "pubkey"
+          },
+          {
+            "name": "round",
+            "type": "u64"
+          },
+          {
+            "name": "was_honest",
+            "type": "bool"
+          },
+          {
+            "name": "new_reputation_bps",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SlashExecuted",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "candidate",
+            "type": "pubkey"
+          },
+          {
+            "name": "voucher",
+            "type": "pubkey"
+          },
+          {
+            "name": "slashed_bps",
+            "type": "u64"
+          },
+          {
+            "name": "total_votes",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SlashProposed",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "candidate",
+            "type": "pubkey"
+          },
+          {
+            "name": "proposer",
+            "type": "pubkey"
+          },
+          {
+            "name": "vote_count",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SlashVote",
+      "docs": [
+        "Records votes from committee members to slash a misbehaving node.",
+        "Created by propose_slash; votes added by vote_slash; executed by execute_slash.",
+        "PDA seeds: [\"slash_vote\", candidate.key()]"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "candidate",
+            "docs": [
+              "Pubkey of the candidate being considered for slashing."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "votes",
+            "docs": [
+              "Number of votes received (max 5, need 3 to execute)."
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "voter_1",
+            "docs": [
+              "First voter pubkey."
+            ],
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "voter_2",
+            "docs": [
+              "Second voter pubkey."
+            ],
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "voter_3",
+            "docs": [
+              "Third voter pubkey."
+            ],
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "active",
+            "docs": [
+              "True while voting is active; false once executed or cancelled."
+            ],
+            "type": "bool"
+          },
+          {
+            "name": "bump",
+            "docs": [
+              "PDA bump."
+            ],
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SlashVoteAdded",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "candidate",
+            "type": "pubkey"
+          },
+          {
+            "name": "voter",
+            "type": "pubkey"
+          },
+          {
+            "name": "total_votes",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "StakeReleased",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "voucher",
+            "type": "pubkey"
+          },
+          {
+            "name": "candidate",
+            "type": "pubkey"
+          },
+          {
+            "name": "returned_bps",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "TaskSubmitted",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "node",
+            "type": "pubkey"
+          },
+          {
+            "name": "task_index",
+            "type": "u8"
+          },
+          {
+            "name": "proof_valid",
+            "type": "bool"
+          },
+          {
+            "name": "tasks_completed",
+            "type": "u8"
+          },
+          {
+            "name": "tasks_passed",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "VoteCast",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "node",
+            "type": "pubkey"
+          },
+          {
+            "name": "round",
+            "type": "u64"
+          },
+          {
+            "name": "honest",
+            "type": "bool"
+          },
+          {
+            "name": "new_reputation_bps",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "VouchRecord",
+      "docs": [
+        "Records an active or settled vouching relationship.",
+        "Created in Phase 2; settled (active=false) in release_voucher_stake or report_misbehavior.",
+        "PDA seeds: [\"vouch\", voucher.key(), candidate.key()]"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "voucher",
+            "docs": [
+              "Pubkey of the vouching node."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "candidate",
+            "docs": [
+              "Pubkey of the candidate node."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "staked_reputation_bps",
+            "docs": [
+              "Reputation staked by the voucher (in BPS)."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "active",
+            "docs": [
+              "True while the stake is held; false once released or slashed."
+            ],
+            "type": "bool"
+          },
+          {
+            "name": "bump",
+            "docs": [
+              "PDA bump."
+            ],
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "VouchingCompleted",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "voucher",
+            "type": "pubkey"
+          },
+          {
+            "name": "candidate",
+            "type": "pubkey"
+          },
+          {
+            "name": "staked_reputation_bps",
+            "type": "u64"
+          },
+          {
+            "name": "candidate_initial_rep_bps",
+            "type": "u64"
+          }
+        ]
+      }
+    }
+  ]
+}

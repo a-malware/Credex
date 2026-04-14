@@ -29,3 +29,4 @@ bun-error.log*
 # parse.js
 # parse_presentation.js
 # pdf_extracted.txt
+.vercel

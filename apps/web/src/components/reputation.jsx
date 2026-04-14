@@ -1,6 +1,10 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useStore } from "@/store/useStore";
+import { useWallet, useConnection } from "@solana/wallet-adapter-react";
+import { AnchorProvider } from "@coral-xyz/anchor";
+import { getProgram } from "@/chain/program";
+import { bpsToDecimal, shortenAddress, getPhaseLabel, isPhase } from "@/chain/utils";
 import {
   AreaChart,
   Area,
@@ -17,6 +21,8 @@ import {
   Download,
   ArrowUpRight,
   ArrowDownRight,
+  Users,
+  Loader,
 } from "lucide-react";
 
 const generateHistory = () => {
@@ -69,7 +75,62 @@ const CustomTooltip = ({ active, payload, label }) => {
 
 export default function Reputation() {
   const { reputation } = useStore();
+  const wallet = useWallet();
+  const { connection } = useConnection();
   const [range, setRange] = useState("3M");
+  const [allNodes, setAllNodes] = useState([]);
+  const [loadingNodes, setLoadingNodes] = useState(true);
+
+  // Fetch all nodes from blockchain
+  useEffect(() => {
+    const fetchAllNodes = async () => {
+      if (!wallet.publicKey) {
+        setLoadingNodes(false);
+        return;
+      }
+
+      try {
+        setLoadingNodes(true);
+        const provider = new AnchorProvider(
+          connection,
+          wallet as any,
+          { commitment: 'confirmed' }
+        );
+        const program = getProgram(provider);
+
+        // Query all NodeState accounts
+        const accounts = await program.account.nodeState.all();
+
+        // Map to display format
+        const nodes = accounts.map(acc => {
+          const phaseKey = Object.keys(acc.account.phase)[0];
+          const phaseNum = { phase1: 1, phase2: 2, phase3: 3, full: 4, banned: 0 }[phaseKey] || 0;
+          
+          return {
+            pubkey: acc.publicKey,
+            owner: acc.account.owner,
+            phase: phaseNum,
+            phaseLabel: getPhaseLabel(acc.account.phase),
+            reputation: bpsToDecimal(acc.account.reputationBps),
+            tasksCompleted: acc.account.tasksPassed,
+            nTasks: acc.account.nTasks,
+            honestRounds: acc.account.honestRounds,
+          };
+        });
+
+        // Sort by reputation descending
+        nodes.sort((a, b) => b.reputation - a.reputation);
+        
+        setAllNodes(nodes);
+      } catch (err) {
+        console.error('Error fetching nodes:', err);
+      } finally {
+        setLoadingNodes(false);
+      }
+    };
+
+    fetchAllNodes();
+  }, [wallet.publicKey, connection]);
 
   // Dynamically update the current day's graph point to reflect live reputation
   const baseData = RANGE_MAP[range] || FULL_HISTORY;
@@ -483,6 +544,146 @@ export default function Reputation() {
           );
         })}
       </div>
+
+      {/* Network Nodes List */}
+      <div
+        style={{
+          background: "white",
+          borderRadius: 20,
+          marginBottom: 16,
+          overflow: "hidden",
+          boxShadow: "0 1px 6px rgba(0,0,0,0.06)",
+        }}
+      >
+        <div
+          style={{
+            padding: "14px 16px 10px",
+            borderBottom: "1px solid #F5F5F5",
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+          }}
+        >
+          <Users size={15} color="#0052FF" />
+          <span style={{ fontSize: 14, fontWeight: 700, color: "#0D1421" }}>
+            Network Nodes
+          </span>
+          <span style={{ 
+            fontSize: 11, 
+            color: "#6B7280", 
+            background: "#F3F4F6", 
+            borderRadius: 10, 
+            padding: "2px 8px",
+            marginLeft: "auto",
+          }}>
+            {allNodes.length} total
+          </span>
+        </div>
+
+        {loadingNodes ? (
+          <div style={{ padding: "40px 20px", textAlign: "center" }}>
+            <Loader size={24} color="#0052FF" style={{ animation: "spin 1s linear infinite", margin: "0 auto" }} />
+            <div style={{ fontSize: 12, color: "#9CA3AF", marginTop: 12 }}>
+              Loading nodes...
+            </div>
+          </div>
+        ) : allNodes.length === 0 ? (
+          <div style={{ padding: "40px 20px", textAlign: "center", color: "#9CA3AF" }}>
+            <div style={{ fontSize: 13, fontWeight: 600 }}>No nodes found</div>
+            <div style={{ fontSize: 11, marginTop: 4 }}>
+              Connect wallet to view network nodes
+            </div>
+          </div>
+        ) : (
+          allNodes.slice(0, 10).map((node, i) => {
+            const repPct = Math.round(node.reputation * 100);
+            const phaseColor = 
+              node.phase === 4 ? "#05C48F" :
+              node.phase === 3 ? "#8B5CF6" :
+              node.phase === 2 ? "#F59E0B" :
+              node.phase === 1 ? "#0052FF" : "#EF4444";
+            
+            return (
+              <div
+                key={node.pubkey.toString()}
+                style={{
+                  padding: "12px 16px",
+                  borderBottom: i < Math.min(allNodes.length, 10) - 1 ? "1px solid #F9F9F9" : "none",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                }}
+              >
+                <div
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 10,
+                    background: phaseColor + "18",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                    fontSize: 11,
+                    fontWeight: 800,
+                    color: phaseColor,
+                  }}
+                >
+                  #{i + 1}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div
+                    style={{ fontSize: 13, fontWeight: 600, color: "#0D1421" }}
+                  >
+                    {shortenAddress(node.owner, 4)}
+                  </div>
+                  <div style={{ fontSize: 10, color: "#9CA3AF", marginTop: 1 }}>
+                    {node.tasksCompleted}/{node.nTasks} tasks · {node.honestRounds} rounds
+                  </div>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <div
+                    style={{
+                      fontSize: 13,
+                      fontWeight: 700,
+                      color: phaseColor,
+                    }}
+                  >
+                    {repPct}%
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 9,
+                      color: "#9CA3AF",
+                      marginTop: 1,
+                      fontWeight: 600,
+                    }}
+                  >
+                    Phase {node.phase}
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        )}
+
+        {allNodes.length > 10 && (
+          <div style={{
+            padding: "10px 16px",
+            textAlign: "center",
+            borderTop: "1px solid #F5F5F5",
+            background: "#FAFBFF",
+          }}>
+            <span style={{ fontSize: 11, color: "#6B7280" }}>
+              Showing top 10 of {allNodes.length} nodes
+            </span>
+          </div>
+        )}
+      </div>
+
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+      `}</style>
     </div>
   );
 }

@@ -1,6 +1,18 @@
 "use client";
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useStore } from "@/store/useStore";
+import { useWallet, useConnection } from "@solana/wallet-adapter-react";
+import { AnchorProvider } from "@coral-xyz/anchor";
+import { useNodeState, useNetworkConfig } from "@/chain/accounts";
+import { registerNode, submitTaskProof } from "@/chain/instructions";
+import { getExplorerUrl } from "@/chain/utils";
+import {
+  buildMerkleTree,
+  getMerkleProof,
+  fetchSolanaBlockHashes,
+  bufferToUint8Array,
+  hexToBuffer,
+} from "@/chain/merkle";
 import { toast } from "sonner";
 import {
   CheckCircle,
@@ -11,6 +23,8 @@ import {
   Cpu,
   ThumbsUp,
   ThumbsDown,
+  ExternalLink,
+  Wallet,
 } from "lucide-react";
 
 // ─── Phase 1: Task definitions (5 tasks for demo) ──────────────────────────────
@@ -63,6 +77,21 @@ export default function Merit() {
     addNotification,
   } = useStore();
 
+  // Blockchain integration
+  const { publicKey, wallet } = useWallet();
+  const { connection } = useConnection();
+  const { data: nodeState, loading: nodeLoading } = useNodeState(publicKey);
+  const { data: networkConfig } = useNetworkConfig();
+  const [registering, setRegistering] = useState(false);
+  const [registerTxSignature, setRegisterTxSignature] = useState(null);
+
+  // Merkle tree state
+  const [merkleTree, setMerkleTree] = useState(null);
+  const [merkleLeaves, setMerkleLeaves] = useState([]);
+  const [loadingMerkleTree, setLoadingMerkleTree] = useState(false);
+  const [submittingTask, setSubmittingTask] = useState(null);
+  const [taskTxSignatures, setTaskTxSignatures] = useState({});
+
   // ── Phase 1 state ────────────────────────────────────────────────────────────
   const [taskStatuses, setTaskStatuses] = useState(() => {
     const init = {};
@@ -93,6 +122,166 @@ export default function Merit() {
 
   const verifiedCount = Object.values(taskStatuses).filter(s => s === "verified").length;
   const progressPct   = Math.round((verifiedCount / 5) * 100);
+
+  // ── Generate Merkle tree from Solana block hashes ────────────────────────────
+  useEffect(() => {
+    const generateMerkleTree = async () => {
+      if (!networkConfig || merkleTree) return;
+
+      try {
+        setLoadingMerkleTree(true);
+        
+        // Fetch block hashes from Solana mainnet
+        const blockHashes = await fetchSolanaBlockHashes(connection, 20);
+        
+        // Build Merkle tree
+        const tree = buildMerkleTree(blockHashes);
+        
+        setMerkleTree(tree);
+        setMerkleLeaves(blockHashes);
+        
+        console.log('Merkle tree generated:', {
+          root: tree.root.toString('hex'),
+          depth: tree.depth,
+          leaves: blockHashes.length,
+        });
+      } catch (error) {
+        console.error('Failed to generate Merkle tree:', error);
+        toast.error('Failed to load task data', {
+          description: 'Could not fetch Solana block hashes',
+        });
+      } finally {
+        setLoadingMerkleTree(false);
+      }
+    };
+
+    generateMerkleTree();
+  }, [networkConfig, connection, merkleTree]);
+
+  // ── Submit task proof with Merkle verification ───────────────────────────────
+  const handleSubmitTaskProof = useCallback(async (taskId) => {
+    if (!publicKey || !wallet || !merkleTree || !merkleLeaves.length) {
+      toast.error("Cannot submit task", {
+        description: "Merkle tree not ready or wallet not connected",
+      });
+      return;
+    }
+
+    try {
+      setSubmittingTask(taskId);
+
+      // Get the leaf data for this task (use task index)
+      const leafIndex = taskId - 1;
+      if (leafIndex >= merkleLeaves.length) {
+        throw new Error('Task index out of bounds');
+      }
+
+      const leafData = merkleLeaves[leafIndex];
+      
+      // Generate Merkle proof
+      const proof = getMerkleProof(merkleLeaves, leafIndex);
+      
+      // Convert to Uint8Array for Anchor
+      const leafDataArray = bufferToUint8Array(leafData);
+      const proofArrays = proof.map(p => bufferToUint8Array(p));
+
+      // Create provider
+      const provider = new AnchorProvider(
+        connection,
+        wallet.adapter as any,
+        { commitment: 'confirmed' }
+      );
+
+      // Submit task proof
+      const signature = await submitTaskProof(
+        provider,
+        leafIndex,
+        leafDataArray,
+        proofArrays
+      );
+
+      // Store transaction signature
+      setTaskTxSignatures(prev => ({ ...prev, [taskId]: signature }));
+
+      // Update task status
+      completeTask(taskId);
+
+      // Show success toast with Explorer link
+      const explorerUrl = getExplorerUrl(signature, 'devnet');
+      toast.success("Task proof verified!", {
+        description: `Task ${taskId} completed on-chain`,
+        action: {
+          label: "View Transaction",
+          onClick: () => window.open(explorerUrl, '_blank'),
+        },
+        duration: 6000,
+      });
+
+    } catch (error: any) {
+      console.error("Task submission error:", error);
+      toast.error("Task submission failed", {
+        description: error?.message || "Please try again",
+      });
+    } finally {
+      setSubmittingTask(null);
+    }
+  }, [publicKey, wallet, connection, merkleTree, merkleLeaves, completeTask]);
+
+  // ── Register node on blockchain ──────────────────────────────────────────────
+  const handleRegisterNode = useCallback(async () => {
+    if (!publicKey || !wallet) {
+      toast.error("Wallet not connected", {
+        description: "Please connect your wallet first",
+      });
+      return;
+    }
+
+    try {
+      setRegistering(true);
+      
+      // Create provider
+      const provider = new AnchorProvider(
+        connection,
+        wallet.adapter as any,
+        { commitment: 'confirmed' }
+      );
+
+      // Call register_node instruction
+      const signature = await registerNode(provider);
+      setRegisterTxSignature(signature);
+
+      // Add activity
+      addActivity({
+        id: Date.now(),
+        type: "phase",
+        message: "Node registered on-chain — Phase 1 begins",
+        time: "just now",
+      });
+
+      // Show success toast with Explorer link
+      const explorerUrl = getExplorerUrl(signature, 'devnet');
+      toast.success("Node registered successfully!", {
+        description: "You can now start completing tasks",
+        action: {
+          label: "View Transaction",
+          onClick: () => window.open(explorerUrl, '_blank'),
+        },
+        duration: 6000,
+      });
+
+      // Update local state
+      setPhase(1);
+      setReputation(0.1); // Initial reputation from smart contract
+
+    } catch (error: any) {
+      console.error("Registration error:", error);
+      toast.error("Registration failed", {
+        description: error?.message || "Please try again",
+      });
+    } finally {
+      setRegistering(false);
+    }
+  }, [publicKey, wallet, connection, addActivity, setPhase, setReputation]);
 
   // ── Complete a task (called after hash puzzle resolves) ───────────────────────
   const completeTask = useCallback((taskId) => {
@@ -268,6 +457,314 @@ export default function Merit() {
   );
 
   // ────────────────────────────────────────────────────────────────────────────
+  // PHASE 0 — Not Registered (Registration Screen)
+  // ────────────────────────────────────────────────────────────────────────────
+  if (!nodeState && !nodeLoading) {
+    return (
+      <div style={{ padding: "20px 16px 0" }}>
+        {/* Registration Hero Card */}
+        <div
+          style={{
+            background: "linear-gradient(135deg, #0038E8 0%, #0052FF 60%, #1A6BFF 100%)",
+            borderRadius: 24,
+            padding: "32px 24px",
+            marginBottom: 20,
+            position: "relative",
+            overflow: "hidden",
+            boxShadow: "0 8px 32px rgba(0,82,255,0.3)",
+          }}
+        >
+          {/* Decorative circles */}
+          <div
+            style={{
+              position: "absolute",
+              top: -40,
+              right: -40,
+              width: 180,
+              height: 180,
+              borderRadius: "50%",
+              background: "rgba(255,255,255,0.06)",
+              pointerEvents: "none",
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              bottom: -24,
+              left: 20,
+              width: 100,
+              height: 100,
+              borderRadius: "50%",
+              background: "rgba(255,255,255,0.04)",
+              pointerEvents: "none",
+            }}
+          />
+
+          <div style={{ textAlign: "center", position: "relative" }}>
+            <div
+              style={{
+                width: 72,
+                height: 72,
+                borderRadius: "50%",
+                background: "rgba(255,255,255,0.15)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                margin: "0 auto 20px",
+              }}
+            >
+              <Shield size={36} color="white" />
+            </div>
+            <div
+              style={{
+                fontSize: 24,
+                fontWeight: 800,
+                color: "white",
+                marginBottom: 8,
+                letterSpacing: -0.5,
+              }}
+            >
+              Join the Network
+            </div>
+            <div
+              style={{
+                fontSize: 14,
+                color: "rgba(255,255,255,0.75)",
+                lineHeight: 1.6,
+                maxWidth: 320,
+                margin: "0 auto",
+              }}
+            >
+              Register your node on-chain to start earning reputation and participating in consensus
+            </div>
+          </div>
+        </div>
+
+        {/* How it Works */}
+        <div
+          style={{
+            background: "white",
+            borderRadius: 20,
+            padding: "20px 18px",
+            marginBottom: 20,
+            boxShadow: "0 1px 6px rgba(0,0,0,0.06)",
+          }}
+        >
+          <div
+            style={{
+              fontSize: 15,
+              fontWeight: 800,
+              color: "#0D1421",
+              marginBottom: 16,
+            }}
+          >
+            How It Works
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            {[
+              {
+                step: "1",
+                title: "Register Node",
+                desc: "Create your on-chain node account",
+                color: "#0052FF",
+              },
+              {
+                step: "2",
+                title: "Complete Tasks",
+                desc: "Prove computational capability (Phase 1)",
+                color: "#8B5CF6",
+              },
+              {
+                step: "3",
+                title: "Get Vouched",
+                desc: "Established node stakes reputation for you (Phase 2)",
+                color: "#F59E0B",
+              },
+              {
+                step: "4",
+                title: "Participate",
+                desc: "Vote in consensus rounds (Phase 3)",
+                color: "#05C48F",
+              },
+            ].map(({ step, title, desc, color }) => (
+              <div
+                key={step}
+                style={{ display: "flex", alignItems: "flex-start", gap: 12 }}
+              >
+                <div
+                  style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: 10,
+                    background: color + "18",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                  }}
+                >
+                  <span
+                    style={{ fontSize: 14, fontWeight: 800, color }}
+                  >
+                    {step}
+                  </span>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div
+                    style={{
+                      fontSize: 13,
+                      fontWeight: 700,
+                      color: "#0D1421",
+                      marginBottom: 2,
+                    }}
+                  >
+                    {title}
+                  </div>
+                  <div style={{ fontSize: 12, color: "#9CA3AF" }}>
+                    {desc}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Requirements */}
+        <div
+          style={{
+            background: "#FFFBEB",
+            border: "1px solid #FDE68A",
+            borderRadius: 16,
+            padding: "14px 16px",
+            marginBottom: 20,
+          }}
+        >
+          <div
+            style={{
+              fontSize: 13,
+              fontWeight: 700,
+              color: "#92400E",
+              marginBottom: 6,
+            }}
+          >
+            Requirements
+          </div>
+          <ul
+            style={{
+              margin: 0,
+              paddingLeft: 20,
+              fontSize: 12,
+              color: "#78350F",
+              lineHeight: 1.6,
+            }}
+          >
+            <li>Connected Solana wallet (Phantom or Solflare)</li>
+            <li>Small amount of SOL for transaction fees (~0.001 SOL)</li>
+            <li>Devnet network selected in your wallet</li>
+          </ul>
+        </div>
+
+        {/* Register Button */}
+        {!publicKey ? (
+          <div
+            style={{
+              background: "white",
+              borderRadius: 16,
+              padding: "20px",
+              textAlign: "center",
+              boxShadow: "0 1px 6px rgba(0,0,0,0.06)",
+            }}
+          >
+            <Wallet size={32} color="#9CA3AF" style={{ margin: "0 auto 12px" }} />
+            <div
+              style={{
+                fontSize: 14,
+                fontWeight: 700,
+                color: "#0D1421",
+                marginBottom: 4,
+              }}
+            >
+              Wallet Not Connected
+            </div>
+            <div style={{ fontSize: 12, color: "#9CA3AF" }}>
+              Please connect your wallet to continue
+            </div>
+          </div>
+        ) : (
+          <button
+            onClick={handleRegisterNode}
+            disabled={registering}
+            style={{
+              width: "100%",
+              background: registering
+                ? "#F3F4F6"
+                : "linear-gradient(135deg, #0038E8, #0052FF)",
+              color: registering ? "#9CA3AF" : "white",
+              border: "none",
+              borderRadius: 16,
+              padding: "18px",
+              fontSize: 16,
+              fontWeight: 700,
+              cursor: registering ? "not-allowed" : "pointer",
+              boxShadow: registering
+                ? "none"
+                : "0 6px 24px rgba(0,82,255,0.35)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 10,
+              marginBottom: 16,
+            }}
+          >
+            {registering ? (
+              <>
+                <Loader size={18} style={{ animation: "spin 1s linear infinite" }} />
+                <span>Registering Node...</span>
+              </>
+            ) : (
+              <>
+                <Shield size={18} />
+                <span>Register Node</span>
+              </>
+            )}
+          </button>
+        )}
+
+        {/* Transaction Link */}
+        {registerTxSignature && (
+          <a
+            href={getExplorerUrl(registerTxSignature, 'devnet')}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 6,
+              padding: "12px",
+              background: "#F9FAFB",
+              borderRadius: 12,
+              fontSize: 13,
+              color: "#0052FF",
+              fontWeight: 600,
+              textDecoration: "none",
+            }}
+          >
+            <ExternalLink size={14} />
+            View Transaction on Explorer
+          </a>
+        )}
+
+        <style>{`
+          @keyframes spin {
+            to { transform: rotate(360deg); }
+          }
+        `}</style>
+      </div>
+    );
+  }
+
+  // ────────────────────────────────────────────────────────────────────────────
   // PHASE 1 — Hash Puzzle Micro-tasks
   // ────────────────────────────────────────────────────────────────────────────
   if (phase === 1)
@@ -293,11 +790,13 @@ export default function Merit() {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
             <div>
               <div style={{ fontSize: 17, fontWeight: 800, color: "#0D1421" }}>Probationary Tasks</div>
-              <div style={{ fontSize: 12, color: "#9CA3AF" }}>Find a valid SHA-256 proof for each task</div>
+              <div style={{ fontSize: 12, color: "#9CA3AF" }}>
+                {loadingMerkleTree ? "Loading task data..." : "Submit valid Merkle proofs for each task"}
+              </div>
             </div>
             <div style={{ background: "#EEF3FF", borderRadius: 12, padding: "6px 12px" }}>
               <span style={{ fontSize: 15, fontWeight: 800, color: "#0052FF" }}>
-                {verifiedCount}<span style={{ fontWeight: 500, fontSize: 12 }}>/20</span>
+                {verifiedCount}<span style={{ fontWeight: 500, fontSize: 12 }}>/{networkConfig?.nTasks || 20}</span>
               </span>
             </div>
           </div>
@@ -310,8 +809,17 @@ export default function Merit() {
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8 }}>
             <div style={{ fontSize: 10, color: "#9CA3AF" }}>
-              Target prefix: <span style={{ fontFamily: "monospace", color: "#05C48F", fontWeight: 700 }}>000…</span>
-              &nbsp;·&nbsp;Difficulty: 12-bit
+              {merkleTree ? (
+                <>
+                  Merkle root: <span style={{ fontFamily: "monospace", color: "#05C48F", fontWeight: 700 }}>
+                    {merkleTree.root.toString('hex').slice(0, 8)}...
+                  </span>
+                </>
+              ) : loadingMerkleTree ? (
+                "Generating Merkle tree..."
+              ) : (
+                "Waiting for task data..."
+              )}
             </div>
             <div style={{ fontSize: 11, color: "#9CA3AF" }}>{progressPct}% complete</div>
           </div>
@@ -447,23 +955,47 @@ export default function Merit() {
                 </div>
                 {done ? (
                   <span style={{ fontSize: 12, color: "#05C48F", fontWeight: 700 }}>Done</span>
+                ) : submittingTask === task.id ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                    <Loader size={14} style={{ animation: "spin 1s linear infinite" }} />
+                    <span style={{ fontSize: 12, color: "#0052FF", fontWeight: 700 }}>Submitting...</span>
+                  </div>
                 ) : (
                   <button
-                    onClick={() => handleStartProof(task.id)}
-                    disabled={hashSolver.taskId !== null}
+                    onClick={() => handleSubmitTaskProof(task.id)}
+                    disabled={submittingTask !== null || loadingMerkleTree}
                     style={{
                       display: "flex", alignItems: "center", gap: 5,
-                      background: hashSolver.taskId !== null ? "#F3F4F6" : "linear-gradient(135deg,#0038E8,#0052FF)",
-                      color: hashSolver.taskId !== null ? "#9CA3AF" : "white",
+                      background: submittingTask !== null || loadingMerkleTree ? "#F3F4F6" : "linear-gradient(135deg,#0038E8,#0052FF)",
+                      color: submittingTask !== null || loadingMerkleTree ? "#9CA3AF" : "white",
                       border: "none", borderRadius: 10, padding: "7px 12px",
                       fontSize: 12, fontWeight: 700,
-                      cursor: hashSolver.taskId !== null ? "not-allowed" : "pointer",
-                      boxShadow: hashSolver.taskId !== null ? "none" : "0 3px 10px rgba(0,82,255,0.25)",
+                      cursor: submittingTask !== null || loadingMerkleTree ? "not-allowed" : "pointer",
+                      boxShadow: submittingTask !== null || loadingMerkleTree ? "none" : "0 3px 10px rgba(0,82,255,0.25)",
                     }}
                   >
-                    <Cpu size={12} />
-                    <span>Start Proof</span>
+                    <Shield size={12} />
+                    <span>Submit Proof</span>
                   </button>
+                )}
+                {/* Show Explorer link if task has been submitted */}
+                {taskTxSignatures[task.id] && (
+                  <a
+                    href={getExplorerUrl(taskTxSignatures[task.id], 'devnet')}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 4,
+                      fontSize: 11,
+                      color: "#0052FF",
+                      textDecoration: "none",
+                      marginLeft: 8,
+                    }}
+                  >
+                    <ExternalLink size={11} />
+                  </a>
                 )}
               </div>
             );

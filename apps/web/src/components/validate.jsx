@@ -1,6 +1,11 @@
 "use client";
 import { useState, useCallback } from "react";
 import { useStore } from "@/store/useStore";
+import { useWallet, useConnection } from "@solana/wallet-adapter-react";
+import { AnchorProvider } from "@coral-xyz/anchor";
+import { useNetworkConfig } from "@/chain/accounts";
+import { castVote, releaseVoucherStake } from "@/chain/instructions";
+import { getExplorerUrl } from "@/chain/utils";
 import { toast } from "sonner";
 import {
   ShieldCheck,
@@ -13,13 +18,20 @@ import {
   ChevronRight,
   Cpu,
   Lock,
+  ExternalLink,
 } from "lucide-react";
 
 // ─── Incoming nodes requesting a voucher ──────────────────────────────────────
 const INCOMING_REQUESTS = [
-  { wallet: "2mPx...7Rn4", tasks: 20, validity: 97, phase: 1, age: "2h ago",  stake: "2.5 SOL" },
-  { wallet: "6qTy...3Fu9", tasks: 19, validity: 94, phase: 1, age: "5h ago",  stake: "2.5 SOL" },
-  { wallet: "4hWz...1Kp6", tasks: 18, validity: 89, phase: 1, age: "11h ago", stake: "2.5 SOL" },
+  { wallet: "2mPx...7Rn4", tasks: 20, validity: 97, phase: 1, age: "2h ago",  stake: "2.5 SOL", graduated: false },
+  { wallet: "6qTy...3Fu9", tasks: 19, validity: 94, phase: 1, age: "5h ago",  stake: "2.5 SOL", graduated: false },
+  { wallet: "4hWz...1Kp6", tasks: 18, validity: 89, phase: 1, age: "11h ago", stake: "2.5 SOL", graduated: false },
+];
+
+// ─── Graduated nodes (Phase 3 → Full) where stake can be released ─────────────
+const GRADUATED_NODES = [
+  { wallet: "8nKx...2Qw5", phase: 4, graduatedAt: "1d ago", stake: "2.5 SOL" },
+  { wallet: "3pLm...9Tz1", phase: 4, graduatedAt: "3d ago", stake: "2.5 SOL" },
 ];
 
 // ─── Optional ongoing validation quests ──────────────────────────────────────
@@ -32,14 +44,130 @@ const QUESTS = [
 
 export default function Validate() {
   const { reputation, setReputation, addActivity, addNotification } = useStore();
+  const wallet = useWallet();
+  const { connection } = useConnection();
+  const { data: networkConfig } = useNetworkConfig();
 
   const [vouchingFor,   setVouchingFor]   = useState(null);   // wallet string | null
   const [vouchStatus,   setVouchStatus]   = useState("idle");  // idle | pending | done
   const [vouchedList,   setVouchedList]   = useState([]);
   const [questProgress, setQuestProgress] = useState({});      // { [id]: "idle"|"running"|"done" }
+  const [voting, setVoting] = useState(false);
+  const [lastVotedRound, setLastVotedRound] = useState(null);
+  const [releasingStake, setReleasingStake] = useState(null); // wallet string | null
+  const [releasedStakes, setReleasedStakes] = useState([]);   // array of released wallet strings
 
   const repPct   = Math.round(reputation * 100);
   const repColor = reputation >= 0.7 ? "#05C48F" : reputation >= 0.4 ? "#F59E0B" : "#EF4444";
+  const currentRound = networkConfig?.currentRound?.toNumber() || 0;
+
+  // ── Cast vote for current round ───────────────────────────────────────────────
+  const handleCastVote = useCallback(async () => {
+    if (!wallet.publicKey || voting || lastVotedRound === currentRound) return;
+    
+    setVoting(true);
+    try {
+      const provider = new AnchorProvider(
+        connection,
+        wallet as any,
+        { commitment: 'confirmed' }
+      );
+
+      // Call castVote instruction
+      const signature = await castVote(provider, currentRound);
+      
+      setLastVotedRound(currentRound);
+      
+      const explorerUrl = getExplorerUrl(signature, 'devnet');
+      
+      addActivity({
+        id: Date.now(),
+        type: "reputation",
+        message: `Voted in round ${currentRound}`,
+        time: "just now",
+      });
+
+      toast.success("Vote cast!", {
+        description: (
+          <div>
+            <div>Round {currentRound} vote recorded</div>
+            <a 
+              href={explorerUrl} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              style={{ color: '#0052FF', textDecoration: 'underline', display: 'flex', alignItems: 'center', gap: 4, marginTop: 4 }}
+            >
+              View on Explorer <ExternalLink size={12} />
+            </a>
+          </div>
+        ),
+      });
+    } catch (err) {
+      console.error('Vote error:', err);
+      toast.error('Vote failed', {
+        description: err?.message || 'Transaction failed',
+      });
+    } finally {
+      setVoting(false);
+    }
+  }, [wallet, connection, voting, currentRound, lastVotedRound, addActivity]);
+
+  // ── Release voucher stake after graduation ────────────────────────────────────
+  const handleReleaseStake = useCallback(async (candidateWallet) => {
+    if (!wallet.publicKey || releasingStake) return;
+    
+    setReleasingStake(candidateWallet);
+    try {
+      const provider = new AnchorProvider(
+        connection,
+        wallet as any,
+        { commitment: 'confirmed' }
+      );
+
+      // For demo, we'll use a mock PublicKey - in production this would come from blockchain data
+      // const candidatePubkey = new PublicKey(candidateWallet);
+      // const signature = await releaseVoucherStake(provider, candidatePubkey);
+      
+      // Simulate transaction for demo
+      await new Promise(r => setTimeout(r, 2000));
+      const signature = "demo_signature_" + Date.now();
+      
+      setReleasedStakes(prev => [...prev, candidateWallet]);
+      setReputation(Math.min(1, reputation + 0.02));
+      
+      const explorerUrl = getExplorerUrl(signature, 'devnet');
+      
+      addActivity({
+        id: Date.now(),
+        type: "reputation",
+        message: `Released stake for ${candidateWallet} · 2.5 SOL returned`,
+        time: "just now",
+      });
+
+      toast.success("Stake released!", {
+        description: (
+          <div>
+            <div>2.5 SOL returned · Reputation +2%</div>
+            <a 
+              href={explorerUrl} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              style={{ color: '#0052FF', textDecoration: 'underline', display: 'flex', alignItems: 'center', gap: 4, marginTop: 4 }}
+            >
+              View on Explorer <ExternalLink size={12} />
+            </a>
+          </div>
+        ),
+      });
+    } catch (err) {
+      console.error('Release stake error:', err);
+      toast.error('Release failed', {
+        description: err?.message || 'Transaction failed',
+      });
+    } finally {
+      setReleasingStake(null);
+    }
+  }, [wallet, connection, releasingStake, reputation, setReputation, addActivity]);
 
   // ── Vouch for an incoming node ───────────────────────────────────────────────
   const handleVouch = useCallback(async (node) => {
@@ -132,6 +260,83 @@ export default function Validate() {
               </div>
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* ── Consensus Voting ──────────────────────────────────────────────────── */}
+      <div style={{ marginBottom: 8 }}>
+        <div style={{ fontSize: 15, fontWeight: 800, color: "#0D1421", marginBottom: 4 }}>
+          Consensus Voting
+        </div>
+        <div style={{ fontSize: 12, color: "#9CA3AF", marginBottom: 14 }}>
+          Cast your vote for the current round to maintain reputation
+        </div>
+      </div>
+
+      <div style={{
+        background: "white", borderRadius: 18, padding: "16px",
+        boxShadow: "0 1px 5px rgba(0,0,0,0.06)", marginBottom: 24,
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
+          <div style={{
+            width: 48, height: 48, borderRadius: 14,
+            background: "linear-gradient(135deg, #0038E8, #0052FF)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            flexShrink: 0,
+          }}>
+            <Star size={24} color="white" />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "#0D1421" }}>
+              Round {currentRound}
+            </div>
+            <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 1 }}>
+              {lastVotedRound === currentRound ? "Vote recorded" : "Vote to participate"}
+            </div>
+          </div>
+          {lastVotedRound === currentRound ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 5, color: "#05C48F" }}>
+              <CheckCircle size={18} />
+              <span style={{ fontSize: 12, fontWeight: 700 }}>Voted</span>
+            </div>
+          ) : (
+            <button
+              onClick={handleCastVote}
+              disabled={voting || !wallet.publicKey}
+              style={{
+                background: voting || !wallet.publicKey ? "#F3F4F6" : "linear-gradient(135deg,#0038E8,#0052FF)",
+                color: voting || !wallet.publicKey ? "#9CA3AF" : "white",
+                border: "none", borderRadius: 11, padding: "10px 16px",
+                fontSize: 13, fontWeight: 700,
+                cursor: voting || !wallet.publicKey ? "not-allowed" : "pointer",
+                boxShadow: voting || !wallet.publicKey ? "none" : "0 3px 10px rgba(0,82,255,0.25)",
+                display: "flex", alignItems: "center", gap: 6,
+              }}
+            >
+              {voting ? (
+                <>
+                  <Clock size={14} />
+                  Voting...
+                </>
+              ) : (
+                <>
+                  <Star size={14} />
+                  Cast Vote
+                </>
+              )}
+            </button>
+          )}
+        </div>
+        <div style={{
+          background: "#F9FAFB", borderRadius: 12, padding: "10px 12px",
+          display: "flex", justifyContent: "space-between", alignItems: "center",
+        }}>
+          <span style={{ fontSize: 11, color: "#6B7280" }}>
+            Voting maintains your reputation score
+          </span>
+          <span style={{ fontSize: 11, color: "#0052FF", fontWeight: 700 }}>
+            Required
+          </span>
         </div>
       </div>
 
@@ -228,6 +433,98 @@ export default function Validate() {
           );
         })}
       </div>
+
+      {/* ── Release Voucher Stakes ────────────────────────────────────────────── */}
+      {GRADUATED_NODES.length > 0 && (
+        <>
+          <div style={{ marginBottom: 8 }}>
+            <div style={{ fontSize: 15, fontWeight: 800, color: "#0D1421", marginBottom: 4 }}>
+              Release Voucher Stakes
+            </div>
+            <div style={{ fontSize: 12, color: "#9CA3AF", marginBottom: 14 }}>
+              Candidates you vouched for have graduated — release your stake
+            </div>
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 24 }}>
+            {GRADUATED_NODES.map((node) => {
+              const alreadyReleased = releasedStakes.includes(node.wallet);
+              const isReleasing = releasingStake === node.wallet;
+
+              return (
+                <div key={node.wallet} style={{
+                  background: "white", borderRadius: 18,
+                  boxShadow: alreadyReleased
+                    ? "0 0 0 2px #05C48F, 0 2px 8px rgba(5,196,143,0.1)"
+                    : "0 1px 5px rgba(0,0,0,0.06)",
+                  overflow: "hidden",
+                  opacity: alreadyReleased ? 0.6 : 1,
+                }}>
+                  <div style={{ padding: "14px 16px", display: "flex", alignItems: "center", gap: 12 }}>
+                    {/* Avatar */}
+                    <div style={{
+                      width: 44, height: 44, borderRadius: 13, flexShrink: 0,
+                      background: `hsl(${(node.wallet.charCodeAt(0) * 9) % 360},50%,52%)`,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                    }}>
+                      <span style={{ color: "white", fontSize: 13, fontWeight: 800 }}>{node.wallet.slice(0, 2)}</span>
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: "#0D1421" }}>{node.wallet}</div>
+                      <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 1 }}>
+                        Phase {node.phase} · Graduated {node.graduatedAt}
+                      </div>
+                    </div>
+                    {alreadyReleased ? (
+                      <div style={{ display: "flex", alignItems: "center", gap: 5, color: "#05C48F" }}>
+                        <CheckCircle size={16} />
+                        <span style={{ fontSize: 12, fontWeight: 700 }}>Released</span>
+                      </div>
+                    ) : isReleasing ? (
+                      <div style={{ display: "flex", alignItems: "center", gap: 5, color: "#9CA3AF" }}>
+                        <Clock size={14} />
+                        <span style={{ fontSize: 12, fontWeight: 600 }}>Releasing…</span>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => handleReleaseStake(node.wallet)}
+                        disabled={releasingStake !== null}
+                        style={{
+                          background: releasingStake !== null ? "#F3F4F6" : "linear-gradient(135deg,#05C48F,#059669)",
+                          color: releasingStake !== null ? "#9CA3AF" : "white",
+                          border: "none", borderRadius: 11, padding: "8px 14px",
+                          fontSize: 12, fontWeight: 700, cursor: releasingStake !== null ? "not-allowed" : "pointer",
+                          boxShadow: releasingStake !== null ? "none" : "0 3px 10px rgba(5,196,143,0.25)",
+                          display: "flex", alignItems: "center", gap: 5,
+                        }}
+                      >
+                        <ArrowUpRight size={12} />
+                        Release
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Stake info bar */}
+                  {!alreadyReleased && (
+                    <div style={{
+                      borderTop: "1px solid #F5F5F5",
+                      padding: "8px 16px",
+                      display: "flex", alignItems: "center", justifyContent: "space-between",
+                      background: "#ECFDF5",
+                    }}>
+                      <span style={{ fontSize: 11, color: "#059669" }}>
+                        <CheckCircle size={9} style={{ display: "inline", marginRight: 4 }} />
+                        Return stake: <strong style={{ color: "#047857" }}>{node.stake}</strong>
+                      </span>
+                      <span style={{ fontSize: 11, color: "#05C48F", fontWeight: 700 }}>+2% rep</span>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
 
       {/* ── Ongoing Validation Quests ─────────────────────────────────────────── */}
       <div style={{ marginBottom: 8 }}>
