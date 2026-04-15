@@ -43,7 +43,7 @@ export default function Vouch() {
         setLoading(true);
         const provider = new AnchorProvider(
           connection,
-          wallet as any,
+          wallet,
           { commitment: 'confirmed' }
         );
         const program = getProgram(provider);
@@ -92,7 +92,7 @@ export default function Vouch() {
     try {
       const provider = new AnchorProvider(
         connection,
-        wallet as any,
+        wallet,
         { commitment: 'confirmed' }
       );
 

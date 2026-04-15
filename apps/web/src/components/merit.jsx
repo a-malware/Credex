@@ -188,7 +188,7 @@ export default function Merit() {
       // Create provider
       const provider = new AnchorProvider(
         connection,
-        wallet.adapter as any,
+        wallet.adapter,
         { commitment: 'confirmed' }
       );
 
@@ -242,7 +242,7 @@ export default function Merit() {
       // Create provider
       const provider = new AnchorProvider(
         connection,
-        wallet.adapter as any,
+        wallet.adapter,
         { commitment: 'confirmed' }
       );
 

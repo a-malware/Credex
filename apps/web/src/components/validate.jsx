@@ -69,7 +69,7 @@ export default function Validate() {
     try {
       const provider = new AnchorProvider(
         connection,
-        wallet as any,
+        wallet,
         { commitment: 'confirmed' }
       );
 
@@ -120,7 +120,7 @@ export default function Validate() {
     try {
       const provider = new AnchorProvider(
         connection,
-        wallet as any,
+        wallet,
         { commitment: 'confirmed' }
       );
 

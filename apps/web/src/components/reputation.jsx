@@ -93,7 +93,7 @@ export default function Reputation() {
         setLoadingNodes(true);
         const provider = new AnchorProvider(
           connection,
-          wallet as any,
+          wallet,
           { commitment: 'confirmed' }
         );
         const program = getProgram(provider);
