@@ -1,11 +1,11 @@
 import { Connection, clusterApiUrl } from '@solana/web3.js';
-import { createHash } from 'crypto';
+import { sha256 as sha256Hash } from '@noble/hashes/sha256';
 
 /**
- * SHA256 hash function
+ * SHA256 hash function using browser-compatible @noble/hashes
  */
 function sha256(data: Buffer): Buffer {
-  return createHash('sha256').update(data).digest();
+  return Buffer.from(sha256Hash(data));
 }
 
 /**
