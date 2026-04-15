@@ -217,7 +217,7 @@ export default function Merit() {
         duration: 6000,
       });
 
-    } catch (error: any) {
+    } catch (error) {
       console.error("Task submission error:", error);
       toast.error("Task submission failed", {
         description: error?.message || "Please try again",
@@ -273,7 +273,7 @@ export default function Merit() {
       setPhase(1);
       setReputation(0.1); // Initial reputation from smart contract
 
-    } catch (error: any) {
+    } catch (error) {
       console.error("Registration error:", error);
       toast.error("Registration failed", {
         description: error?.message || "Please try again",
