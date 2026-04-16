@@ -1,3 +1,27 @@
+## Deployment Status
+
+**Latest Deployment**: Commit 80eae59 - "Add dynamic index.html generation from manifest"
+
+**Key Changes**:
+1. Created `apps/web/scripts/generate-index.js` - Dynamically generates index.html from Vite manifest
+2. Updated build script to run generation after React Router build
+3. Updated vercel.json to use dynamic generation instead of static copy
+
+**Why This Matters**:
+- Vite generates hashed filenames (e.g., `entry.client-BqM3s2RH.js`) that change on every build
+- Static index.html would break when filenames change
+- Dynamic generation reads the manifest and injects correct filenames automatically
+
+**Deployment URL**: Check Vercel Dashboard for the latest deployment URL
+
+**Next Steps After Deployment**:
+1. Verify site loads without 404 errors
+2. Test wallet connection (Phantom on Devnet)
+3. Test all blockchain interactions
+4. Verify Solana Explorer links work
+
+---
+
 # Deployment Guide - ColdStart PoR Protocol
 
 ## Prerequisites
