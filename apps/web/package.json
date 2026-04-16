@@ -4,7 +4,7 @@
 	"type": "module",
 	"scripts": {
 		"dev": "react-router dev",
-		"build": "react-router build; node -e \"require('fs').copyFileSync('index.html', 'build/client/index.html')\"",
+		"build": "react-router build && node scripts/generate-index.js",
 		"start": "react-router-serve ./build/server/index.js",
 		"typecheck": "react-router typegen && tsc --noEmit"
 	},
