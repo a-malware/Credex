@@ -29,6 +29,18 @@ export default defineConfig({
       '@auth/core/errors',
       'fsevents',
       'lightningcss',
+      '@ledgerhq/errors',
+      '@ledgerhq/devices',
+      '@ledgerhq/hw-transport',
+      '@ledgerhq/hw-transport-webhid',
+    ],
+  },
+  ssr: {
+    external: [
+      '@ledgerhq/errors',
+      '@ledgerhq/devices',
+      '@ledgerhq/hw-transport',
+      '@ledgerhq/hw-transport-webhid',
     ],
   },
   logLevel: 'info',
