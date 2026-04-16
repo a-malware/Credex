@@ -3,9 +3,9 @@
 **Latest Deployment**: Commit 80eae59 - "Add dynamic index.html generation from manifest"
 
 **Key Changes**:
-1. Created `apps/web/scripts/generate-index.js` - Dynamically generates index.html from Vite manifest
-2. Updated build script to run generation after React Router build
-3. Updated vercel.json to use dynamic generation instead of static copy
+1. ~~Created `apps/web/scripts/generate-index.js` - Dynamically generates index.html from Vite manifest~~ **REMOVED** - React Router v7 SPA mode handles this automatically
+2. ~~Updated build script to run generation after React Router build~~ **REVERTED** - Using default `react-router build`
+3. Updated vercel.json to use SPA routing with automatic index.html generation
 
 **Why This Matters**:
 - Vite generates hashed filenames (e.g., `entry.client-BqM3s2RH.js`) that change on every build
