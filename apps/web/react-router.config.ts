@@ -6,9 +6,4 @@ export default {
 	buildEnd: async ({ viteConfig }) => {
 		// Configure build target to support top-level await
 	},
-	vite: {
-		build: {
-			target: 'esnext',
-		},
-	},
 } satisfies Config;
