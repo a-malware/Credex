@@ -5,7 +5,6 @@ import {
   Scripts,
   ScrollRestoration,
 } from 'react-router';
-import { SolanaWalletProvider } from '../chain/wallet-provider';
 
 export function Layout({ children }) {
   return (
@@ -26,9 +25,5 @@ export function Layout({ children }) {
 }
 
 export default function App() {
-  return (
-    <SolanaWalletProvider>
-      <Outlet />
-    </SolanaWalletProvider>
-  );
+  return <Outlet />;
 }
