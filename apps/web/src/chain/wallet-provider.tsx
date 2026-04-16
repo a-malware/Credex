@@ -1,7 +1,6 @@
 import React, { useMemo } from 'react';
 import { ConnectionProvider, WalletProvider } from '@solana/wallet-adapter-react';
 import { WalletModalProvider } from '@solana/wallet-adapter-react-ui';
-import { PhantomWalletAdapter, SolflareWalletAdapter } from '@solana/wallet-adapter-wallets';
 import { clusterApiUrl } from '@solana/web3.js';
 
 // Import wallet adapter CSS
@@ -11,14 +10,9 @@ export function SolanaWalletProvider({ children }: { children: React.ReactNode }
   // Configure devnet endpoint
   const endpoint = useMemo(() => clusterApiUrl('devnet'), []);
 
-  // Configure wallet adapters
-  const wallets = useMemo(
-    () => [
-      new PhantomWalletAdapter(),
-      new SolflareWalletAdapter(),
-    ],
-    []
-  );
+  // Use empty wallets array to avoid problematic wallet dependencies
+  // Users can still connect via wallet detection
+  const wallets = useMemo(() => [], []);
 
   return (
     <ConnectionProvider endpoint={endpoint}>
