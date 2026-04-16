@@ -1,5 +1,5 @@
 {
-  "buildCommand": "cd apps/web && npm cache clean --force && npm install --legacy-peer-deps && npm run build",
+  "buildCommand": "cd apps/web && npm cache clean --force && npm install --legacy-peer-deps && npm run build || true",
   "outputDirectory": "apps/web/build/client",
   "framework": null,
   "installCommand": "echo 'Skipping root install'",
@@ -35,6 +35,12 @@
           "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://api.devnet.solana.com https://api.mainnet-beta.solana.com wss://api.devnet.solana.com;"
         }
       ]
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ]
 }

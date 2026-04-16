@@ -82,23 +82,23 @@
   - [x] 4.1.3 Update test helper functions for new signatures
 
 - [ ] 4.2 Add tests for committee voting
-  - [~] 4.2.1 Test record_round_outcome with valid committee
-  - [~] 4.2.2 Test record_round_outcome rejects non-Full cosigners
-  - [~] 4.2.3 Test reputation update via Eq. 4
-  - [~] 4.2.4 Test Phase 3 graduation after M honest rounds
+  - [ ] 4.2.1 Test record_round_outcome with valid committee
+  - [ ] 4.2.2 Test record_round_outcome rejects non-Full cosigners
+  - [ ] 4.2.3 Test reputation update via Eq. 4
+  - [ ] 4.2.4 Test Phase 3 graduation after M honest rounds
 
 - [ ] 4.3 Add tests for committee slashing
-  - [~] 4.3.1 Test propose_slash creates SlashVote with votes = 1
-  - [~] 4.3.2 Test vote_slash increments vote count
-  - [~] 4.3.3 Test vote_slash rejects duplicate voters
-  - [~] 4.3.4 Test execute_slash with votes < 3 fails
-  - [~] 4.3.5 Test execute_slash with votes >= 3 succeeds
+  - [ ] 4.3.1 Test propose_slash creates SlashVote with votes = 1
+  - [ ] 4.3.2 Test vote_slash increments vote count
+  - [ ] 4.3.3 Test vote_slash rejects duplicate voters
+  - [ ] 4.3.4 Test execute_slash with votes < 3 fails
+  - [ ] 4.3.5 Test execute_slash with votes >= 3 succeeds
 
 - [ ] 4.4 Add edge case tests
-  - [~] 4.4.1 Test invalid Merkle proof rejection
-  - [~] 4.4.2 Test valid proof for wrong task index rejection
-  - [~] 4.4.3 Test double voting in same round rejection
-  - [~] 4.4.4 Test Phase 2 node cannot cast_vote
+  - [ ] 4.4.1 Test invalid Merkle proof rejection
+  - [ ] 4.4.2 Test valid proof for wrong task index rejection
+  - [ ] 4.4.3 Test double voting in same round rejection
+  - [ ] 4.4.4 Test Phase 2 node cannot cast_vote
 
 ## Phase 2: Frontend Integration
 
@@ -288,9 +288,9 @@
   - [x] 13.1.4 Measure account rent costs
 
 - [ ] 13.2 Run benchmarks
-  - [~] 13.2.1 Execute each instruction 10 times
-  - [~] 13.2.2 Compute mean and standard deviation
-  - [~] 13.2.3 Parse compute units from transaction logs
+  - [ ] 13.2.1 Execute each instruction 10 times
+  - [ ] 13.2.2 Compute mean and standard deviation
+  - [ ] 13.2.3 Parse compute units from transaction logs
 
 - [x] 13.3 Document results
   - [x] 13.3.1 Create docs/benchmarks.md
@@ -305,18 +305,18 @@
   - [x] 14.1.3 Airdrop SOL to all candidates
 
 - [ ] 14.2 Implement simulation flow
-  - [~] 14.2.1 Register all 10 nodes
-  - [~] 14.2.2 Complete Phase 1 tasks for all nodes
-  - [~] 14.2.3 Create 3 genesis Full nodes as vouchers
-  - [~] 14.2.4 Vouch for all 10 candidates
-  - [~] 14.2.5 Execute 10 consensus rounds with all nodes voting
-  - [~] 14.2.6 Graduate all nodes to Full status
+  - [ ] 14.2.1 Register all 10 nodes
+  - [ ] 14.2.2 Complete Phase 1 tasks for all nodes
+  - [ ] 14.2.3 Create 3 genesis Full nodes as vouchers
+  - [ ] 14.2.4 Vouch for all 10 candidates
+  - [ ] 14.2.5 Execute 10 consensus rounds with all nodes voting
+  - [ ] 14.2.6 Graduate all nodes to Full status
 
 - [ ] 14.3 Measure and report
-  - [~] 14.3.1 Measure total execution time
-  - [~] 14.3.2 Measure total transaction fees
-  - [~] 14.3.3 Output summary report
-  - [~] 14.3.4 Include: node count, total time, total fees, avg time per node
+  - [ ] 14.3.1 Measure total execution time
+  - [ ] 14.3.2 Measure total transaction fees
+  - [ ] 14.3.3 Output summary report
+  - [ ] 14.3.4 Include: node count, total time, total fees, avg time per node
 
 ### 15. Web Application Deployment
 
@@ -339,21 +339,21 @@
 ### 16. Academic Paper Updates
 
 - [ ] 16.1 Update simulation section
-  - [~] 16.1.1 Replace simulated data with devnet multi-node results
-  - [~] 16.1.2 Update Section V-A with real node counts and timing
+  - [ ] 16.1.1 Replace simulated data with devnet multi-node results
+  - [ ] 16.1.2 Update Section V-A with real node counts and timing
 
 - [ ] 16.2 Update performance figures
-  - [~] 16.2.1 Replace Fig. 3 with devnet benchmark table
-  - [~] 16.2.2 Update caption to reference devnet measurements
+  - [ ] 16.2.1 Replace Fig. 3 with devnet benchmark table
+  - [ ] 16.2.2 Update caption to reference devnet measurements
 
 - [ ] 16.3 Update protocol description
-  - [~] 16.3.1 Update Section III-B to describe Merkle inclusion proofs
-  - [~] 16.3.2 Update Section III-D to describe committee voting
+  - [ ] 16.3.1 Update Section III-B to describe Merkle inclusion proofs
+  - [ ] 16.3.2 Update Section III-D to describe committee voting
 
 - [ ] 16.4 Add deployment references
-  - [~] 16.4.1 Add devnet program address to paper
-  - [~] 16.4.2 Add deployed frontend URL to paper
-  - [~] 16.4.3 Add screenshot of live UI as Fig. 4
+  - [ ] 16.4.1 Add devnet program address to paper
+  - [ ] 16.4.2 Add deployed frontend URL to paper
+  - [ ] 16.4.3 Add screenshot of live UI as Fig. 4
 
 ## Phase 4: ML Oracle (Optional)
 
