@@ -1,4 +1,6 @@
 import { useStore } from '../store/useStore';
+import { useWallet } from '@solana/wallet-adapter-react';
+import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 
 export function Layout({ children }) {
   return (
@@ -17,6 +19,7 @@ export function Layout({ children }) {
 
 export default function App() {
   const { portfolioUSD, reputation, phase } = useStore();
+  const { publicKey, connected } = useWallet();
   
   return (
     <div style={{ 
@@ -52,6 +55,7 @@ export default function App() {
             <li style={{ color: '#059669', marginBottom: '5px' }}>✅ React Router v7: Working</li>
             <li style={{ color: '#059669', marginBottom: '5px' }}>✅ Vercel Deployment: Working</li>
             <li style={{ color: '#059669', marginBottom: '5px' }}>✅ Zustand Store: Working</li>
+            <li style={{ color: '#059669', marginBottom: '5px' }}>✅ Wallet Provider: Working</li>
             <li style={{ color: '#059669', marginBottom: '5px' }}>✅ Environment: {typeof window !== 'undefined' ? 'Client-side' : 'Server-side'}</li>
             <li style={{ color: '#059669', marginBottom: '5px' }}>✅ Build Mode: {process.env.NODE_ENV || 'development'}</li>
           </ul>
@@ -75,13 +79,34 @@ export default function App() {
         <div style={{ 
           marginTop: '20px', 
           padding: '15px', 
+          background: '#F3E8FF', 
+          borderRadius: '10px',
+          border: '1px solid #A855F7'
+        }}>
+          <h3 style={{ color: '#6B21A8', marginBottom: '10px' }}>Wallet Test</h3>
+          <ul style={{ listStyle: 'none', padding: 0 }}>
+            <li style={{ color: '#6B21A8', marginBottom: '5px' }}>
+              🔗 Connected: {connected ? 'Yes' : 'No'}
+            </li>
+            <li style={{ color: '#6B21A8', marginBottom: '5px' }}>
+              🔑 Address: {publicKey ? `${publicKey.toString().slice(0, 4)}...${publicKey.toString().slice(-4)}` : 'None'}
+            </li>
+          </ul>
+          <div style={{ marginTop: '10px' }}>
+            <WalletMultiButton />
+          </div>
+        </div>
+
+        <div style={{ 
+          marginTop: '20px', 
+          padding: '15px', 
           background: '#FEF3C7', 
           borderRadius: '10px',
           border: '1px solid #F59E0B'
         }}>
           <h3 style={{ color: '#92400E', marginBottom: '10px' }}>Next Steps</h3>
           <p style={{ color: '#92400E', fontSize: '14px' }}>
-            Zustand store integration successful. Ready to add wallet provider and UI components.
+            Wallet provider integration successful. Ready to add navigation and UI components.
           </p>
         </div>
       </div>
