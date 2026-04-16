@@ -1,6 +1,4 @@
 import { useStore } from '../store/useStore';
-import { useWallet } from '@solana/wallet-adapter-react';
-import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 
 export function Layout({ children }) {
   return (
@@ -19,7 +17,6 @@ export function Layout({ children }) {
 
 export default function App() {
   const { portfolioUSD, reputation, phase } = useStore();
-  const { publicKey, connected } = useWallet();
   
   return (
     <div style={{ 
@@ -55,7 +52,7 @@ export default function App() {
             <li style={{ color: '#059669', marginBottom: '5px' }}>✅ React Router v7: Working</li>
             <li style={{ color: '#059669', marginBottom: '5px' }}>✅ Vercel Deployment: Working</li>
             <li style={{ color: '#059669', marginBottom: '5px' }}>✅ Zustand Store: Working</li>
-            <li style={{ color: '#059669', marginBottom: '5px' }}>✅ Wallet Provider: Working</li>
+            <li style={{ color: '#EF4444', marginBottom: '5px' }}>❌ Wallet Provider: Causes Blank Screen</li>
             <li style={{ color: '#059669', marginBottom: '5px' }}>✅ Environment: {typeof window !== 'undefined' ? 'Client-side' : 'Server-side'}</li>
             <li style={{ color: '#059669', marginBottom: '5px' }}>✅ Build Mode: {process.env.NODE_ENV || 'development'}</li>
           </ul>
@@ -79,22 +76,19 @@ export default function App() {
         <div style={{ 
           marginTop: '20px', 
           padding: '15px', 
-          background: '#F3E8FF', 
+          background: '#FEE2E2', 
           borderRadius: '10px',
-          border: '1px solid #A855F7'
+          border: '1px solid #EF4444'
         }}>
-          <h3 style={{ color: '#6B21A8', marginBottom: '10px' }}>Wallet Test</h3>
+          <h3 style={{ color: '#991B1B', marginBottom: '10px' }}>Issue Identified</h3>
+          <p style={{ color: '#991B1B', fontSize: '14px', marginBottom: '10px' }}>
+            🎯 <strong>Root Cause Found:</strong> Solana Wallet Provider causes blank screen in production
+          </p>
           <ul style={{ listStyle: 'none', padding: 0 }}>
-            <li style={{ color: '#6B21A8', marginBottom: '5px' }}>
-              🔗 Connected: {connected ? 'Yes' : 'No'}
-            </li>
-            <li style={{ color: '#6B21A8', marginBottom: '5px' }}>
-              🔑 Address: {publicKey ? `${publicKey.toString().slice(0, 4)}...${publicKey.toString().slice(-4)}` : 'None'}
-            </li>
+            <li style={{ color: '#991B1B', fontSize: '12px', marginBottom: '3px' }}>• Zustand Store: ✅ Working</li>
+            <li style={{ color: '#991B1B', fontSize: '12px', marginBottom: '3px' }}>• Wallet Provider: ❌ Blank Screen</li>
+            <li style={{ color: '#991B1B', fontSize: '12px', marginBottom: '3px' }}>• Need alternative wallet solution</li>
           </ul>
-          <div style={{ marginTop: '10px' }}>
-            <WalletMultiButton />
-          </div>
         </div>
 
         <div style={{ 
@@ -106,7 +100,7 @@ export default function App() {
         }}>
           <h3 style={{ color: '#92400E', marginBottom: '10px' }}>Next Steps</h3>
           <p style={{ color: '#92400E', fontSize: '14px' }}>
-            Wallet provider integration successful. Ready to add navigation and UI components.
+            Will implement wallet integration without provider wrapper or use conditional loading.
           </p>
         </div>
       </div>
