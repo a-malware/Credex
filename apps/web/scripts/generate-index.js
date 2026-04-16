@@ -13,29 +13,28 @@ const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8'));
 const entryClient = manifest['node_modules/@react-router/dev/dist/config/defaults/entry.client.tsx'];
 const root = manifest['src/app/root.tsx?__react-router-build-client-route'];
 
-if (!entryClient || !root) {
-  console.error('Could not find entry client or root in manifest');
+if (!entryClient) {
+  console.error('Could not find entry client in manifest');
   process.exit(1);
 }
 
 const jsFile = entryClient.file;
-const cssFile = root.css?.[0];
+const cssFile = root?.css?.[0]; // CSS might not exist
 
-if (!jsFile || !cssFile) {
-  console.error('Could not find JS or CSS file in manifest');
+if (!jsFile) {
+  console.error('Could not find JS file in manifest');
   console.log('Entry client:', entryClient);
-  console.log('Root:', root);
   process.exit(1);
 }
 
 // Generate index.html
+const cssLink = cssFile ? `<link rel="stylesheet" href="/${cssFile}" />` : '';
 const html = `<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ColdStart PoR Protocol</title>
-    <link rel="stylesheet" href="/${cssFile}" />
+    <title>ColdStart PoR Protocol</title>${cssFile ? '\n    ' + cssLink : ''}
   </head>
   <body>
     <div id="root"></div>
@@ -49,5 +48,7 @@ const indexPath = join(__dirname, '../build/client/index.html');
 writeFileSync(indexPath, html, 'utf-8');
 
 console.log('✅ Generated index.html with:');
-console.log('   CSS:', cssFile);
+if (cssFile) {
+  console.log('   CSS:', cssFile);
+}
 console.log('   JS:', jsFile);
