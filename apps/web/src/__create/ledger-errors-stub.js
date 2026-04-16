@@ -35,3 +35,52 @@ export const DeviceExtractOnboardingStateError = class extends Error {};
 export const DeviceOnboardingStatePollingError = class extends Error {};
 export const EnpointConfigError = class extends Error {};
 export const EthAppPleaseEnableContractData = class extends Error {};
+
+// Additional exports for @ledgerhq/hw-transport
+export const TransportStatusError = class extends Error {
+  constructor(statusCode, message) {
+    super(message || `Transport error: ${statusCode}`);
+    this.statusCode = statusCode;
+  }
+};
+export const TransportError = class extends Error {};
+export const TransportOpenUserCancelled = class extends Error {};
+export const TransportInterfaceNotSupported = class extends Error {};
+export const TransportRaceCondition = class extends Error {};
+export const TransportCanceledUserAction = class extends Error {};
+export const TransportWeakRandomness = class extends Error {};
+export const TransportExchangeTimeoutError = class extends Error {};
+export const TransportInvalidAppResponse = class extends Error {};
+export const TransportInvalidChannel = class extends Error {};
+export const TransportInvalidPayload = class extends Error {};
+export const TransportMissingAppDependencies = class extends Error {};
+export const TransportPermissionDenied = class extends Error {};
+export const TransportPrepareTransactionSigningError = class extends Error {};
+export const TransportTooManyTransportUInstances = class extends Error {};
+export const TransportUserCancelled = class extends Error {};
+export const TransportWebHIDNotSupported = class extends Error {};
+export const TransportWebUSBGestureRequired = class extends Error {};
+export const TransportWebUSBNotSupported = class extends Error {};
+export const TransportWindowClosedError = class extends Error {};
+export const TransportNotReadyError = class extends Error {};
+export const TransportNoBluetooth = class extends Error {};
+export const TransportNoDevice = class extends Error {};
+export const TransportNotSupported = class extends Error {};
+export const TransportRejected = class extends Error {};
+export const TransportTimeout = class extends Error {};
+export const TransportUnknownError = class extends Error {};
+export const TransportVersionMismatch = class extends Error {};
+export const TransportWebsocketError = class extends Error {};
+export const TransportWebsocketNotAvailable = class extends Error {};
+export const TransportWebsocketSSLError = class extends Error {};
+export const TransportWebsocketTimeoutError = class extends Error {};
+export const TransportWebsocketUnknownError = class extends Error {};
+
+// Default export
+export default {
+  serializeError,
+  deserializeError,
+  createCustomErrorClass,
+  addCustomErrorDeserializer,
+  TransportStatusError,
+};
