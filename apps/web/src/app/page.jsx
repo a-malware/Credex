@@ -782,6 +782,12 @@ function Navigation() {
   );
 }
 
+// Import the actual components
+import MeritComponent from '../components/merit.jsx';
+import ValidateComponent from '../components/validate.jsx';
+import VouchComponent from '../components/vouch.jsx';
+import ActivityComponent from '../components/activity.jsx';
+
 // Content component that shows different views based on active tab
 function TabContent() {
   const { activeTab } = useStore();
@@ -790,86 +796,31 @@ function TabContent() {
     return <HomeComponent />;
   }
   
-  const content = {
-    merit: {
-      title: 'Merit Mode',
-      description: 'Complete tasks to earn reputation',
-      color: '#8B5CF6'
-    },
-    validate: {
-      title: 'Validate Network',
-      description: 'Participate in network validation',
-      color: '#10B981'
-    },
-    vouch: {
-      title: 'Vouch System',
-      description: 'Vouch for other participants',
-      color: '#F59E0B'
-    },
-    activity: {
-      title: 'Activity Feed',
-      description: 'Recent transactions and events',
-      color: '#EF4444'
-    }
-  };
+  if (activeTab === 'merit') {
+    return <MeritComponent />;
+  }
+  
+  if (activeTab === 'validate') {
+    return <ValidateComponent />;
+  }
+  
+  if (activeTab === 'vouch') {
+    return <VouchComponent />;
+  }
+  
+  if (activeTab === 'activity') {
+    return <ActivityComponent />;
+  }
 
-  const current = content[activeTab] || content.merit;
-
+  // Fallback for unknown tabs
   return (
     <div style={{
       padding: '20px',
-      paddingBottom: '80px', // Space for navigation
+      paddingBottom: '80px',
       textAlign: 'center'
     }}>
-      <div style={{
-        width: '60px',
-        height: '60px',
-        borderRadius: '50%',
-        background: current.color + '20',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        margin: '0 auto 20px',
-        fontSize: '24px',
-        color: current.color
-      }}>
-        {activeTab === 'merit' && '⭐'}
-        {activeTab === 'validate' && '✅'}
-        {activeTab === 'vouch' && '🤝'}
-        {activeTab === 'activity' && '📊'}
-      </div>
-      
-      <h2 style={{ 
-        color: '#0D1421', 
-        marginBottom: '10px',
-        fontSize: '24px',
-        fontWeight: '700'
-      }}>
-        {current.title}
-      </h2>
-      
-      <p style={{ 
-        color: '#6B7280', 
-        marginBottom: '30px',
-        fontSize: '16px'
-      }}>
-        {current.description}
-      </p>
-
-      <div style={{
-        background: 'white',
-        borderRadius: '16px',
-        padding: '20px',
-        boxShadow: '0 1px 6px rgba(0,0,0,0.06)',
-        textAlign: 'left'
-      }}>
-        <h3 style={{ color: '#0D1421', marginBottom: '15px' }}>
-          {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Features
-        </h3>
-        <div style={{ color: '#6B7280', fontSize: '14px' }}>
-          This is where the {activeTab} component will be implemented. 
-          Navigation is working perfectly!
-        </div>
+      <div style={{ color: '#6B7280', fontSize: '16px' }}>
+        Tab not found: {activeTab}
       </div>
     </div>
   );
