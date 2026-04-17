@@ -132,40 +132,30 @@ export default function Merit() {
   const verifiedCount = Object.values(taskStatuses).filter(s => s === "verified").length;
   const progressPct   = Math.round((verifiedCount / 5) * 100);
 
-  // ── Generate Merkle tree from Solana block hashes ────────────────────────────
+  // ── Generate Merkle tree from Solana block hashes (disabled in demo mode) ────
   useEffect(() => {
-    const generateMerkleTree = async () => {
-      if (!networkConfig || merkleTree) return;
-
+    // Demo mode - skip Merkle tree generation
+    const generateMockMerkleTree = async () => {
       try {
         setLoadingMerkleTree(true);
         
-        // Fetch block hashes from Solana mainnet
-        const blockHashes = await fetchSolanaBlockHashes(connection, 20);
+        // Simulate loading delay
+        await new Promise(resolve => setTimeout(resolve, 1000));
         
-        // Build Merkle tree
-        const tree = buildMerkleTree(blockHashes);
+        // Set mock data
+        setMerkleTree({ root: 'mock_root', depth: 5 });
+        setMerkleLeaves(['mock_leaf_1', 'mock_leaf_2']);
         
-        setMerkleTree(tree);
-        setMerkleLeaves(blockHashes);
-        
-        console.log('Merkle tree generated:', {
-          root: tree.root.toString('hex'),
-          depth: tree.depth,
-          leaves: blockHashes.length,
-        });
+        console.log('Mock Merkle tree generated for demo mode');
       } catch (error) {
-        console.error('Failed to generate Merkle tree:', error);
-        toast.error('Failed to load task data', {
-          description: 'Could not fetch Solana block hashes',
-        });
+        console.error('Failed to generate mock Merkle tree:', error);
       } finally {
         setLoadingMerkleTree(false);
       }
     };
 
-    generateMerkleTree();
-  }, [networkConfig, connection, merkleTree]);
+    generateMockMerkleTree();
+  }, []);
 
   // ── Submit task proof with Merkle verification (demo mode) ──────────────────
   const handleSubmitTaskProof = useCallback(async (taskId) => {
@@ -229,16 +219,11 @@ export default function Merit() {
         message: `Task #${taskId} — proof verified`, time: "just now",
       });
       if (count >= 5) {
-        // Phase 1 complete — single toast covering both task + phase advance
-        toast.success("🎉 Phase 1 complete!", {
-          description: `All 5 tasks done · Find a voucher to advance`,
-          duration: 4000,
-        });
+        // Phase 1 complete — single console log covering both task + phase advance
+        console.log("🎉 Phase 1 complete! All 5 tasks done · Find a voucher to advance");
         setTimeout(() => setPhase(2), 700);
       } else {
-        toast.success("Proof accepted on-chain!", {
-          description: `${count}/5 tasks · Reputation +8%`,
-        });
+        console.log("Proof accepted on-chain! " + count + "/5 tasks · Reputation +8%");
       }
       return next;
     });
@@ -311,7 +296,7 @@ export default function Merit() {
       id: Date.now(), type: "vouch",
       message: `Vouch accepted from ${v.wallet}`, time: "just now",
     });
-    toast.success("Vouch accepted!", { description: "Advancing to Voting Rounds." });
+    console.log("Vouch accepted! Advancing to Voting Rounds.");
     setTimeout(() => setPhase(3), 1500);
   }, [reputation, setReputation, setPhase, addActivity]);
 
@@ -330,7 +315,7 @@ export default function Merit() {
       message: `Round ${next} — voted ${choice === "yes" ? "For" : "Against"} honestly`,
       time: "just now",
     });
-    toast.success(`Round ${next}/3 complete!`, { description: "Reputation +5%" });
+    console.log(`Round ${next}/3 complete! Reputation +5%`);
     if (next >= 3) {
       setTimeout(() => {
         setGraduated(true);
@@ -344,10 +329,7 @@ export default function Merit() {
           id: Date.now() + 1, type: "phase",
           message: "Graduated to full network participation", time: "just now",
         });
-        toast.success("🎓 Fully graduated!", {
-          description: "Merit tab → Validate. You can now vouch for new nodes.",
-          duration: 5000,
-        });
+        console.log("🎓 Fully graduated! Merit tab → Validate. You can now vouch for new nodes.");
         setActiveTab("validate");
       }, 800);
     }
