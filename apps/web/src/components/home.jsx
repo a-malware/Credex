@@ -1,33 +1,33 @@
 "use client";
-import { useStore } from "@/store/useStore";
-import { useWallet } from "@solana/wallet-adapter-react";
-import { useNetworkConfig, useNodeState } from "@/chain/accounts";
-import {
-  TrendingUp,
-  ArrowUpRight,
-  ArrowDownLeft,
-  Send,
-  Download,
-  Repeat,
-  Vote,
-  Zap,
-  ChevronRight,
-  CheckCircle,
-  Shield,
-  Award,
-  Eye,
-  EyeOff,
-  Lock,
-  Gift,
-} from "lucide-react";
+import { useStore } from "../store/useStore";
 import { useState, useRef, useEffect } from "react";
 
+// Simple icons as text (replacing lucide-react to avoid dependencies)
+const Icons = {
+  TrendingUp: '📈',
+  ArrowUpRight: '↗️',
+  ArrowDownLeft: '↙️',
+  Send: '📤',
+  Download: '⬇️',
+  Repeat: '🔄',
+  Vote: '🗳️',
+  Zap: '⚡',
+  ChevronRight: '▶️',
+  CheckCircle: '✅',
+  Shield: '🛡️',
+  Award: '🏆',
+  Eye: '👁️',
+  EyeOff: '🙈',
+  Lock: '🔒',
+  Gift: '🎁',
+};
+
 const ACTIVITY_META = {
-  task: { color: "#05C48F", bg: "#ECFDF5", Icon: CheckCircle },
-  vouch: { color: "#0052FF", bg: "#EEF3FF", Icon: Shield },
-  reputation: { color: "#8B5CF6", bg: "#F5F3FF", Icon: TrendingUp },
-  phase: { color: "#F59E0B", bg: "#FFFBEB", Icon: Award },
-  send: { color: "#EF4444", bg: "#FEF2F2", Icon: ArrowUpRight },
+  task: { color: "#05C48F", bg: "#ECFDF5", icon: Icons.CheckCircle },
+  vouch: { color: "#0052FF", bg: "#EEF3FF", icon: Icons.Shield },
+  reputation: { color: "#8B5CF6", bg: "#F5F3FF", icon: Icons.TrendingUp },
+  phase: { color: "#F59E0B", bg: "#FFFBEB", icon: Icons.Award },
+  send: { color: "#EF4444", bg: "#FEF2F2", icon: Icons.ArrowUpRight },
   receive: { color: "#10B981", bg: "#ECFDF5", Icon: ArrowDownLeft },
   swap: { color: "#3B82F6", bg: "#EFF6FF", Icon: Repeat },
   default: { color: "#6B7280", bg: "#F9FAFB", Icon: Zap },
@@ -54,9 +54,12 @@ export default function Home() {
     setGraduated,
   } = useStore();
 
-  const { publicKey } = useWallet();
-  const { data: networkConfig, loading: configLoading } = useNetworkConfig();
-  const { data: nodeState, loading: nodeLoading } = useNodeState(publicKey);
+  // Wallet integration disabled for production stability
+  const publicKey = null;
+  const networkConfig = null;
+  const configLoading = false;
+  const nodeState = null;
+  const nodeLoading = false;
 
   const [hideBalance, setHideBalance] = useState(false);
   const longPressRef = useRef(null);

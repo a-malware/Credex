@@ -1,46 +1,48 @@
 "use client";
-import { useStore } from "@/store/useStore";
-import {
-  CheckCircle,
-  Shield,
-  TrendingUp,
-  Award,
-  ArrowUpRight,
-  ArrowDownLeft,
-  Repeat,
-  Zap,
-  ChevronRight,
-} from "lucide-react";
+import { useStore } from "../store/useStore";
+
+// Simple icons as text (replacing lucide-react to avoid dependencies)
+const Icons = {
+  CheckCircle: '✅',
+  Shield: '🛡️',
+  TrendingUp: '📈',
+  Award: '🏆',
+  ArrowUpRight: '↗️',
+  ArrowDownLeft: '↙️',
+  Repeat: '🔄',
+  Zap: '⚡',
+  ChevronRight: '▶️',
+};
 
 const ACTIVITY_META = {
   task: {
     color: "#05C48F",
     bg: "#ECFDF5",
-    Icon: CheckCircle,
+    icon: Icons.CheckCircle,
     label: "Task Verified",
   },
-  vouch: { color: "#0052FF", bg: "#EEF3FF", Icon: Shield, label: "Vouch" },
+  vouch: { color: "#0052FF", bg: "#EEF3FF", icon: Icons.Shield, label: "Vouch" },
   reputation: {
     color: "#8B5CF6",
     bg: "#F5F3FF",
-    Icon: TrendingUp,
+    icon: Icons.TrendingUp,
     label: "Reputation",
   },
   phase: {
     color: "#F59E0B",
     bg: "#FFFBEB",
-    Icon: Award,
+    icon: Icons.Award,
     label: "Phase Change",
   },
-  send: { color: "#EF4444", bg: "#FEF2F2", Icon: ArrowUpRight, label: "Sent" },
+  send: { color: "#EF4444", bg: "#FEF2F2", icon: Icons.ArrowUpRight, label: "Sent" },
   receive: {
     color: "#10B981",
     bg: "#ECFDF5",
-    Icon: ArrowDownLeft,
+    icon: Icons.ArrowDownLeft,
     label: "Received",
   },
-  swap: { color: "#3B82F6", bg: "#EFF6FF", Icon: Repeat, label: "Swapped" },
-  default: { color: "#6B7280", bg: "#F9FAFB", Icon: Zap, label: "Activity" },
+  swap: { color: "#3B82F6", bg: "#EFF6FF", icon: Icons.Repeat, label: "Swapped" },
+  default: { color: "#6B7280", bg: "#F9FAFB", icon: Icons.Zap, label: "Activity" },
 };
 
 export default function Activity() {
@@ -127,7 +129,7 @@ export default function Activity() {
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {activities.map((activity) => {
             const meta = ACTIVITY_META[activity.type] || ACTIVITY_META.default;
-            const { Icon, color, bg, label } = meta;
+            const { icon, color, bg, label } = meta;
             const isTransaction = ["send", "receive", "swap"].includes(
               activity.type,
             );
@@ -156,9 +158,10 @@ export default function Activity() {
                     alignItems: "center",
                     justifyContent: "center",
                     flexShrink: 0,
+                    fontSize: "22px",
                   }}
                 >
-                  <Icon size={22} color={color} />
+                  {icon}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div
@@ -219,7 +222,7 @@ export default function Activity() {
                     </div>
                   </div>
                 )}
-                <ChevronRight size={16} color="#D1D5DB" />
+                <span style={{ fontSize: "16px", color: "#D1D5DB" }}>{Icons.ChevronRight}</span>
               </div>
             );
           })}

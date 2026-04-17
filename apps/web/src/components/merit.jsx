@@ -1,31 +1,20 @@
 "use client";
 import { useState, useCallback, useRef, useEffect } from "react";
-import { useStore } from "@/store/useStore";
-import { useWallet, useConnection } from "@solana/wallet-adapter-react";
-import { AnchorProvider } from "@coral-xyz/anchor";
-import { useNodeState, useNetworkConfig } from "@/chain/accounts";
-import { registerNode, submitTaskProof } from "@/chain/instructions";
-import { getExplorerUrl } from "@/chain/utils";
-import {
-  buildMerkleTree,
-  getMerkleProof,
-  fetchSolanaBlockHashes,
-  bufferToUint8Array,
-  hexToBuffer,
-} from "@/chain/merkle";
-import { toast } from "sonner";
-import {
-  CheckCircle,
-  Clock,
-  Shield,
-  Loader,
-  Award,
-  Cpu,
-  ThumbsUp,
-  ThumbsDown,
-  ExternalLink,
-  Wallet,
-} from "lucide-react";
+import { useStore } from "../store/useStore";
+
+// Simple icons as text (replacing lucide-react to avoid dependencies)
+const Icons = {
+  CheckCircle: '✅',
+  Clock: '⏰',
+  Shield: '🛡️',
+  Loader: '⏳',
+  Award: '🏆',
+  Cpu: '💻',
+  ThumbsUp: '👍',
+  ThumbsDown: '👎',
+  ExternalLink: '🔗',
+  Wallet: '👛',
+};
 
 // ─── Phase 1: Task definitions (5 tasks for demo) ──────────────────────────────
 const TASKS = [
@@ -77,11 +66,12 @@ export default function Merit() {
     addNotification,
   } = useStore();
 
-  // Blockchain integration
-  const { publicKey, wallet } = useWallet();
-  const { connection } = useConnection();
-  const { data: nodeState, loading: nodeLoading } = useNodeState(publicKey);
-  const { data: networkConfig } = useNetworkConfig();
+  // Blockchain integration (disabled for production stability)
+  const publicKey = null; // Wallet integration disabled
+  const wallet = null;
+  const nodeState = null;
+  const nodeLoading = false;
+  const networkConfig = null;
   const [registering, setRegistering] = useState(false);
   const [registerTxSignature, setRegisterTxSignature] = useState(null);
 
@@ -158,130 +148,55 @@ export default function Merit() {
     generateMerkleTree();
   }, [networkConfig, connection, merkleTree]);
 
-  // ── Submit task proof with Merkle verification ───────────────────────────────
+  // ── Submit task proof with Merkle verification (demo mode) ──────────────────
   const handleSubmitTaskProof = useCallback(async (taskId) => {
-    if (!publicKey || !wallet || !merkleTree || !merkleLeaves.length) {
-      toast.error("Cannot submit task", {
-        description: "Merkle tree not ready or wallet not connected",
-      });
-      return;
-    }
-
+    // Demo mode - simulate blockchain interaction
     try {
       setSubmittingTask(taskId);
-
-      // Get the leaf data for this task (use task index)
-      const leafIndex = taskId - 1;
-      if (leafIndex >= merkleLeaves.length) {
-        throw new Error('Task index out of bounds');
-      }
-
-      const leafData = merkleLeaves[leafIndex];
       
-      // Generate Merkle proof
-      const proof = getMerkleProof(merkleLeaves, leafIndex);
+      // Simulate network delay
+      await new Promise(resolve => setTimeout(resolve, 2000));
       
-      // Convert to Uint8Array for Anchor
-      const leafDataArray = bufferToUint8Array(leafData);
-      const proofArrays = proof.map(p => bufferToUint8Array(p));
-
-      // Create provider
-      const provider = new AnchorProvider(
-        connection,
-        wallet.adapter,
-        { commitment: 'confirmed' }
-      );
-
-      // Submit task proof
-      const signature = await submitTaskProof(
-        provider,
-        leafIndex,
-        leafDataArray,
-        proofArrays
-      );
-
-      // Store transaction signature
-      setTaskTxSignatures(prev => ({ ...prev, [taskId]: signature }));
-
-      // Update task status
+      // Complete the task
       completeTask(taskId);
-
-      // Show success toast with Explorer link
-      const explorerUrl = getExplorerUrl(signature, 'devnet');
-      toast.success("Task proof verified!", {
-        description: `Task ${taskId} completed on-chain`,
-        action: {
-          label: "View Transaction",
-          onClick: () => window.open(explorerUrl, '_blank'),
-        },
-        duration: 6000,
-      });
-
+      
+      // Show success message
+      console.log(`Task ${taskId} completed in demo mode`);
+      
     } catch (error) {
       console.error("Task submission error:", error);
-      toast.error("Task submission failed", {
-        description: error?.message || "Please try again",
-      });
     } finally {
       setSubmittingTask(null);
     }
-  }, [publicKey, wallet, connection, merkleTree, merkleLeaves, completeTask]);
+  }, [completeTask]);
 
-  // ── Register node on blockchain ──────────────────────────────────────────────
+  // ── Register node on blockchain (demo mode) ──────────────────────────────────
   const handleRegisterNode = useCallback(async () => {
-    if (!publicKey || !wallet) {
-      toast.error("Wallet not connected", {
-        description: "Please connect your wallet first",
-      });
-      return;
-    }
-
+    // Demo mode - simulate registration
     try {
       setRegistering(true);
       
-      // Create provider
-      const provider = new AnchorProvider(
-        connection,
-        wallet.adapter,
-        { commitment: 'confirmed' }
-      );
-
-      // Call register_node instruction
-      const signature = await registerNode(provider);
-      setRegisterTxSignature(signature);
-
+      // Simulate network delay
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
       // Add activity
       addActivity({
         id: Date.now(),
         type: "phase",
-        message: "Node registered on-chain — Phase 1 begins",
+        message: "Node registered (demo mode) — Phase 1 begins",
         time: "just now",
-      });
-
-      // Show success toast with Explorer link
-      const explorerUrl = getExplorerUrl(signature, 'devnet');
-      toast.success("Node registered successfully!", {
-        description: "You can now start completing tasks",
-        action: {
-          label: "View Transaction",
-          onClick: () => window.open(explorerUrl, '_blank'),
-        },
-        duration: 6000,
       });
 
       // Update local state
       setPhase(1);
-      setReputation(0.1); // Initial reputation from smart contract
+      setReputation(0.1); // Initial reputation
 
     } catch (error) {
       console.error("Registration error:", error);
-      toast.error("Registration failed", {
-        description: error?.message || "Please try again",
-      });
     } finally {
       setRegistering(false);
     }
-  }, [publicKey, wallet, connection, addActivity, setPhase, setReputation]);
+  }, [addActivity, setPhase, setReputation]);
 
   // ── Complete a task (called after hash puzzle resolves) ───────────────────────
   const completeTask = useCallback((taskId) => {
@@ -665,77 +580,47 @@ export default function Merit() {
         </div>
 
         {/* Register Button */}
-        {!publicKey ? (
-          <div
-            style={{
-              background: "white",
-              borderRadius: 16,
-              padding: "20px",
-              textAlign: "center",
-              boxShadow: "0 1px 6px rgba(0,0,0,0.06)",
-            }}
-          >
-            <Wallet size={32} color="#9CA3AF" style={{ margin: "0 auto 12px" }} />
-            <div
-              style={{
-                fontSize: 14,
-                fontWeight: 700,
-                color: "#0D1421",
-                marginBottom: 4,
-              }}
-            >
-              Wallet Not Connected
-            </div>
-            <div style={{ fontSize: 12, color: "#9CA3AF" }}>
-              Please connect your wallet to continue
-            </div>
-          </div>
-        ) : (
-          <button
-            onClick={handleRegisterNode}
-            disabled={registering}
-            style={{
-              width: "100%",
-              background: registering
-                ? "#F3F4F6"
-                : "linear-gradient(135deg, #0038E8, #0052FF)",
-              color: registering ? "#9CA3AF" : "white",
-              border: "none",
-              borderRadius: 16,
-              padding: "18px",
-              fontSize: 16,
-              fontWeight: 700,
-              cursor: registering ? "not-allowed" : "pointer",
-              boxShadow: registering
-                ? "none"
-                : "0 6px 24px rgba(0,82,255,0.35)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 10,
-              marginBottom: 16,
-            }}
-          >
-            {registering ? (
-              <>
-                <Loader size={18} style={{ animation: "spin 1s linear infinite" }} />
-                <span>Registering Node...</span>
-              </>
-            ) : (
-              <>
-                <Shield size={18} />
-                <span>Register Node</span>
-              </>
-            )}
-          </button>
-        )}
+        <button
+          onClick={handleRegisterNode}
+          disabled={registering}
+          style={{
+            width: "100%",
+            background: registering
+              ? "#F3F4F6"
+              : "linear-gradient(135deg, #0038E8, #0052FF)",
+            color: registering ? "#9CA3AF" : "white",
+            border: "none",
+            borderRadius: 16,
+            padding: "18px",
+            fontSize: 16,
+            fontWeight: 700,
+            cursor: registering ? "not-allowed" : "pointer",
+            boxShadow: registering
+              ? "none"
+              : "0 6px 24px rgba(0,82,255,0.35)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 10,
+            marginBottom: 16,
+          }}
+        >
+          {registering ? (
+            <>
+              <span style={{ fontSize: '16px' }}>{Icons.Loader}</span>
+              <span>Registering Node...</span>
+            </>
+          ) : (
+            <>
+              <span style={{ fontSize: '16px' }}>{Icons.Shield}</span>
+              <span>Register Node (Demo)</span>
+            </>
+          )}
+        </button>
 
-        {/* Transaction Link */}
+        {/* Transaction Link - Hidden in demo mode */}
         {registerTxSignature && (
-          <a
-            href={getExplorerUrl(registerTxSignature, 'devnet')}
-            target="_blank"
-            rel="noopener noreferrer"
+          <div
             style={{
               display: "flex",
               alignItems: "center",
@@ -750,9 +635,9 @@ export default function Merit() {
               textDecoration: "none",
             }}
           >
-            <ExternalLink size={14} />
-            View Transaction on Explorer
-          </a>
+            <span style={{ fontSize: '14px' }}>{Icons.ExternalLink}</span>
+            Demo Mode - No Transaction
+          </div>
         )}
 
         <style>{`

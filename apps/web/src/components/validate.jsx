@@ -1,25 +1,21 @@
 "use client";
 import { useState, useCallback } from "react";
-import { useStore } from "@/store/useStore";
-import { useWallet, useConnection } from "@solana/wallet-adapter-react";
-import { AnchorProvider } from "@coral-xyz/anchor";
-import { useNetworkConfig } from "@/chain/accounts";
-import { castVote, releaseVoucherStake } from "@/chain/instructions";
-import { getExplorerUrl } from "@/chain/utils";
-import { toast } from "sonner";
-import {
-  ShieldCheck,
-  Star,
-  Users,
-  Zap,
-  CheckCircle,
-  Clock,
-  ArrowUpRight,
-  ChevronRight,
-  Cpu,
-  Lock,
-  ExternalLink,
-} from "lucide-react";
+import { useStore } from "../store/useStore";
+
+// Simple icons as text (replacing lucide-react to avoid dependencies)
+const Icons = {
+  ShieldCheck: '🛡️',
+  Star: '⭐',
+  Users: '👥',
+  Zap: '⚡',
+  CheckCircle: '✅',
+  Clock: '⏰',
+  ArrowUpRight: '↗️',
+  ChevronRight: '▶️',
+  Cpu: '💻',
+  Lock: '🔒',
+  ExternalLink: '🔗',
+};
 
 // ─── Incoming nodes requesting a voucher ──────────────────────────────────────
 const INCOMING_REQUESTS = [
@@ -44,9 +40,8 @@ const QUESTS = [
 
 export default function Validate() {
   const { reputation, setReputation, addActivity, addNotification } = useStore();
-  const wallet = useWallet();
-  const { connection } = useConnection();
-  const { data: networkConfig } = useNetworkConfig();
+  const wallet = { publicKey: null }; // Wallet integration disabled
+  const networkConfig = { currentRound: 42 }; // Mock data
 
   const [vouchingFor,   setVouchingFor]   = useState(null);   // wallet string | null
   const [vouchStatus,   setVouchStatus]   = useState("idle");  // idle | pending | done
@@ -59,115 +54,60 @@ export default function Validate() {
 
   const repPct   = Math.round(reputation * 100);
   const repColor = reputation >= 0.7 ? "#05C48F" : reputation >= 0.4 ? "#F59E0B" : "#EF4444";
-  const currentRound = networkConfig?.currentRound?.toNumber() || 0;
+  const currentRound = networkConfig?.currentRound || 42;
 
-  // ── Cast vote for current round ───────────────────────────────────────────────
+  // ── Cast vote for current round (demo mode) ───────────────────────────────────
   const handleCastVote = useCallback(async () => {
-    if (!wallet.publicKey || voting || lastVotedRound === currentRound) return;
+    if (voting || lastVotedRound === currentRound) return;
     
     setVoting(true);
     try {
-      const provider = new AnchorProvider(
-        connection,
-        wallet,
-        { commitment: 'confirmed' }
-      );
-
-      // Call castVote instruction
-      const signature = await castVote(provider, currentRound);
+      // Simulate network delay
+      await new Promise(resolve => setTimeout(resolve, 1500));
       
       setLastVotedRound(currentRound);
-      
-      const explorerUrl = getExplorerUrl(signature, 'devnet');
       
       addActivity({
         id: Date.now(),
         type: "reputation",
-        message: `Voted in round ${currentRound}`,
+        message: `Voted in round ${currentRound} (demo mode)`,
         time: "just now",
       });
 
-      toast.success("Vote cast!", {
-        description: (
-          <div>
-            <div>Round {currentRound} vote recorded</div>
-            <a 
-              href={explorerUrl} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              style={{ color: '#0052FF', textDecoration: 'underline', display: 'flex', alignItems: 'center', gap: 4, marginTop: 4 }}
-            >
-              View on Explorer <ExternalLink size={12} />
-            </a>
-          </div>
-        ),
-      });
+      console.log(`Vote cast for round ${currentRound} in demo mode`);
     } catch (err) {
       console.error('Vote error:', err);
-      toast.error('Vote failed', {
-        description: err?.message || 'Transaction failed',
-      });
     } finally {
       setVoting(false);
     }
-  }, [wallet, connection, voting, currentRound, lastVotedRound, addActivity]);
+  }, [voting, currentRound, lastVotedRound, addActivity]);
 
-  // ── Release voucher stake after graduation ────────────────────────────────────
+  // ── Release voucher stake after graduation (demo mode) ────────────────────────
   const handleReleaseStake = useCallback(async (candidateWallet) => {
-    if (!wallet.publicKey || releasingStake) return;
+    if (releasingStake) return;
     
     setReleasingStake(candidateWallet);
     try {
-      const provider = new AnchorProvider(
-        connection,
-        wallet,
-        { commitment: 'confirmed' }
-      );
-
-      // For demo, we'll use a mock PublicKey - in production this would come from blockchain data
-      // const candidatePubkey = new PublicKey(candidateWallet);
-      // const signature = await releaseVoucherStake(provider, candidatePubkey);
-      
-      // Simulate transaction for demo
+      // Simulate network delay
       await new Promise(r => setTimeout(r, 2000));
-      const signature = "demo_signature_" + Date.now();
       
       setReleasedStakes(prev => [...prev, candidateWallet]);
       setReputation(Math.min(1, reputation + 0.02));
       
-      const explorerUrl = getExplorerUrl(signature, 'devnet');
-      
       addActivity({
         id: Date.now(),
         type: "reputation",
-        message: `Released stake for ${candidateWallet} · 2.5 SOL returned`,
+        message: `Released stake for ${candidateWallet} · 2.5 SOL returned (demo)`,
         time: "just now",
       });
 
-      toast.success("Stake released!", {
-        description: (
-          <div>
-            <div>2.5 SOL returned · Reputation +2%</div>
-            <a 
-              href={explorerUrl} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              style={{ color: '#0052FF', textDecoration: 'underline', display: 'flex', alignItems: 'center', gap: 4, marginTop: 4 }}
-            >
-              View on Explorer <ExternalLink size={12} />
-            </a>
-          </div>
-        ),
-      });
+      console.log(`Stake released for ${candidateWallet} in demo mode`);
     } catch (err) {
       console.error('Release stake error:', err);
-      toast.error('Release failed', {
-        description: err?.message || 'Transaction failed',
-      });
     } finally {
       setReleasingStake(null);
     }
-  }, [wallet, connection, releasingStake, reputation, setReputation, addActivity]);
+  }, [releasingStake, reputation, setReputation, addActivity]);
 
   // ── Vouch for an incoming node ───────────────────────────────────────────────
   const handleVouch = useCallback(async (node) => {

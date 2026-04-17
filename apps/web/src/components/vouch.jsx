@@ -1,29 +1,28 @@
 "use client";
 import { useState, useCallback, useEffect } from "react";
-import { useStore } from "@/store/useStore";
-import { useWallet, useConnection } from "@solana/wallet-adapter-react";
-import { AnchorProvider } from "@coral-xyz/anchor";
-import { PublicKey } from "@solana/web3.js";
-import { useNodeState } from "@/chain/accounts";
-import { vouchForNode } from "@/chain/instructions";
-import { getProgram, nodePda } from "@/chain/program";
-import { getExplorerUrl, shortenAddress, bpsToDecimal, isPhase } from "@/chain/utils";
-import { toast } from "sonner";
-import {
-  Search,
-  Shield,
-  X,
-  AlertTriangle,
-  CheckCircle,
-  Lock,
-  ExternalLink,
-  Loader,
-} from "lucide-react";
+import { useStore } from "../store/useStore";
+
+// Simple icons as text (replacing lucide-react to avoid dependencies)
+const Icons = {
+  Search: '🔍',
+  Shield: '🛡️',
+  X: '❌',
+  AlertTriangle: '⚠️',
+  CheckCircle: '✅',
+  Lock: '🔒',
+  ExternalLink: '🔗',
+  Loader: '⏳',
+};
+
+// Helper function to shorten addresses
+const shortenAddress = (address, chars = 4) => {
+  const addr = typeof address === 'string' ? address : address.toString();
+  return `${addr.slice(0, chars)}...${addr.slice(-chars)}`;
+};
 
 export default function Vouch() {
   const { reputation, addActivity } = useStore();
-  const wallet = useWallet();
-  const { connection } = useConnection();
+  const wallet = { publicKey: null }; // Wallet integration disabled
   const [search, setSearch] = useState("");
   const [modal, setModal] = useState(null);
   const [vouching, setVouching] = useState(false);
@@ -31,52 +30,60 @@ export default function Vouch() {
   const [phase2Nodes, setPhase2Nodes] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Fetch Phase 2 nodes from blockchain
+  // Mock Phase 2 nodes for demo
+  const mockPhase2Nodes = [
+    {
+      pubkey: "mock1",
+      owner: { toString: () => "2mPx...7Rn4" },
+      tasksCompleted: 20,
+      nTasks: 20,
+      reputation: 0.85,
+      taskScore: 1.0,
+      phase: 2,
+      isOnline: true,
+      lastSeen: "recently",
+    },
+    {
+      pubkey: "mock2", 
+      owner: { toString: () => "6qTy...3Fu9" },
+      tasksCompleted: 19,
+      nTasks: 20,
+      reputation: 0.78,
+      taskScore: 0.95,
+      phase: 2,
+      isOnline: true,
+      lastSeen: "recently",
+    },
+    {
+      pubkey: "mock3",
+      owner: { toString: () => "4hWz...1Kp6" },
+      tasksCompleted: 18,
+      nTasks: 20,
+      reputation: 0.72,
+      taskScore: 0.90,
+      phase: 2,
+      isOnline: false,
+      lastSeen: "2h ago",
+    },
+  ];
+
+  // Fetch Phase 2 nodes from blockchain (demo mode)
   useEffect(() => {
     const fetchPhase2Nodes = async () => {
-      if (!wallet.publicKey) {
-        setLoading(false);
-        return;
-      }
-
       try {
         setLoading(true);
-        const provider = new AnchorProvider(
-          connection,
-          wallet,
-          { commitment: 'confirmed' }
-        );
-        const program = getProgram(provider);
-
-        // Query all NodeState accounts
-        const accounts = await program.account.nodeState.all();
-
-        // Filter for Phase 2 nodes only
-        const phase2 = accounts
-          .filter(acc => isPhase(acc.account.phase, 'phase2'))
-          .map(acc => ({
-            pubkey: acc.publicKey,
-            owner: acc.account.owner,
-            tasksCompleted: acc.account.tasksPassed,
-            nTasks: acc.account.nTasks,
-            reputation: bpsToDecimal(acc.account.reputationBps),
-            taskScore: acc.account.tasksPassed / acc.account.nTasks,
-            phase: 2,
-            isOnline: true, // Could be enhanced with real-time data
-            lastSeen: "recently",
-          }));
-
-        setPhase2Nodes(phase2);
+        // Simulate network delay
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        setPhase2Nodes(mockPhase2Nodes);
       } catch (err) {
         console.error('Error fetching Phase 2 nodes:', err);
-        toast.error('Failed to load eligible nodes');
       } finally {
         setLoading(false);
       }
     };
 
     fetchPhase2Nodes();
-  }, [wallet.publicKey, connection]);
+  }, []);
 
   const canVouch = reputation >= 0.7;
   const stakeAmount = 2.5;
@@ -86,59 +93,34 @@ export default function Vouch() {
   );
 
   const handleVouch = useCallback(async () => {
-    if (!modal || !wallet.publicKey) return;
+    if (!modal) return;
     
     setVouching(true);
     try {
-      const provider = new AnchorProvider(
-        connection,
-        wallet,
-        { commitment: 'confirmed' }
-      );
-
-      // Call vouchForNode instruction
-      const signature = await vouchForNode(provider, modal.owner);
+      // Simulate network delay
+      await new Promise(resolve => setTimeout(resolve, 2000));
       
-      // Store vouched state with transaction signature
+      // Store vouched state with mock signature
       setVouched((prev) => ({ 
         ...prev, 
-        [modal.owner.toString()]: { signature, timestamp: Date.now() } 
+        [modal.owner.toString()]: { signature: "demo_sig_" + Date.now(), timestamp: Date.now() } 
       }));
-
-      const explorerUrl = getExplorerUrl(signature, 'devnet');
       
       addActivity({
         id: Date.now(),
         type: "vouch",
-        message: `Vouched for ${shortenAddress(modal.owner)} · ${stakeAmount} SOL staked`,
+        message: `Vouched for ${modal.owner.toString()} · ${stakeAmount} SOL staked (demo)`,
         time: "just now",
       });
 
-      toast.success("Vouch submitted!", {
-        description: (
-          <div>
-            <div>{stakeAmount} SOL staked on {shortenAddress(modal.owner)}</div>
-            <a 
-              href={explorerUrl} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              style={{ color: '#0052FF', textDecoration: 'underline', display: 'flex', alignItems: 'center', gap: 4, marginTop: 4 }}
-            >
-              View on Explorer <ExternalLink size={12} />
-            </a>
-          </div>
-        ),
-      });
+      console.log(`Vouch submitted for ${modal.owner.toString()} in demo mode`);
     } catch (err) {
       console.error('Vouch error:', err);
-      toast.error('Vouch failed', {
-        description: err?.message || 'Transaction failed',
-      });
     } finally {
       setVouching(false);
       setModal(null);
     }
-  }, [modal, wallet, connection, addActivity, stakeAmount]);
+  }, [modal, addActivity, stakeAmount]);
 
   if (loading) {
     return (

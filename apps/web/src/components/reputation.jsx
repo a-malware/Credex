@@ -1,29 +1,18 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useStore } from "@/store/useStore";
-import { useWallet, useConnection } from "@solana/wallet-adapter-react";
-import { AnchorProvider } from "@coral-xyz/anchor";
-import { getProgram } from "@/chain/program";
-import { bpsToDecimal, shortenAddress, getPhaseLabel, isPhase } from "@/chain/utils";
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  CartesianGrid,
-} from "recharts";
-import {
-  TrendingUp,
-  Shield,
-  Award,
-  Download,
-  ArrowUpRight,
-  ArrowDownRight,
-  Users,
-  Loader,
-} from "lucide-react";
+import { useStore } from "../store/useStore";
+
+// Simple icons as text (replacing lucide-react to avoid dependencies)
+const Icons = {
+  TrendingUp: '📈',
+  Shield: '🛡️',
+  Award: '🏆',
+  Download: '⬇️',
+  ArrowUpRight: '↗️',
+  ArrowDownRight: '↘️',
+  Users: '👥',
+  Loader: '⏳',
+};
 
 const generateHistory = () => {
   const history = [];
