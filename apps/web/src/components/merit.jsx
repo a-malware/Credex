@@ -16,6 +16,25 @@ const Icons = {
   Wallet: '👛',
 };
 
+// Icon wrapper component to handle size and color props
+const Icon = ({ name, size, color, style, ...props }) => (
+  <span style={{ fontSize: `${size || 16}px`, color, ...style }} {...props}>
+    {Icons[name] || '❓'}
+  </span>
+);
+
+// Create icon components that match the old API
+const CheckCircle = (props) => <Icon name="CheckCircle" {...props} />;
+const Clock = (props) => <Icon name="Clock" {...props} />;
+const Shield = (props) => <Icon name="Shield" {...props} />;
+const Loader = (props) => <Icon name="Loader" {...props} />;
+const Award = (props) => <Icon name="Award" {...props} />;
+const Cpu = (props) => <Icon name="Cpu" {...props} />;
+const ThumbsUp = (props) => <Icon name="ThumbsUp" {...props} />;
+const ThumbsDown = (props) => <Icon name="ThumbsDown" {...props} />;
+const ExternalLink = (props) => <Icon name="ExternalLink" {...props} />;
+const Wallet = (props) => <Icon name="Wallet" {...props} />;
+
 // ─── Phase 1: Task definitions (5 tasks for demo) ──────────────────────────────
 const TASKS = [
   { id: 1, name: "Verify node signature",        category: "Verification" },

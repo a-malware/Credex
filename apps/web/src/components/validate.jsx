@@ -17,6 +17,26 @@ const Icons = {
   ExternalLink: '🔗',
 };
 
+// Icon wrapper component to handle size and color props
+const Icon = ({ name, size, color, style, ...props }) => (
+  <span style={{ fontSize: `${size || 16}px`, color, ...style }} {...props}>
+    {Icons[name] || '❓'}
+  </span>
+);
+
+// Create icon components that match the old API
+const ShieldCheck = (props) => <Icon name="ShieldCheck" {...props} />;
+const Star = (props) => <Icon name="Star" {...props} />;
+const Users = (props) => <Icon name="Users" {...props} />;
+const Zap = (props) => <Icon name="Zap" {...props} />;
+const CheckCircle = (props) => <Icon name="CheckCircle" {...props} />;
+const Clock = (props) => <Icon name="Clock" {...props} />;
+const ArrowUpRight = (props) => <Icon name="ArrowUpRight" {...props} />;
+const ChevronRight = (props) => <Icon name="ChevronRight" {...props} />;
+const Cpu = (props) => <Icon name="Cpu" {...props} />;
+const Lock = (props) => <Icon name="Lock" {...props} />;
+const ExternalLink = (props) => <Icon name="ExternalLink" {...props} />;
+
 // ─── Incoming nodes requesting a voucher ──────────────────────────────────────
 const INCOMING_REQUESTS = [
   { wallet: "2mPx...7Rn4", tasks: 20, validity: 97, phase: 1, age: "2h ago",  stake: "2.5 SOL", graduated: false },

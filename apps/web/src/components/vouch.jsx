@@ -14,6 +14,23 @@ const Icons = {
   Loader: '⏳',
 };
 
+// Icon wrapper component to handle size and color props
+const Icon = ({ name, size, color, style, ...props }) => (
+  <span style={{ fontSize: `${size || 16}px`, color, ...style }} {...props}>
+    {Icons[name] || '❓'}
+  </span>
+);
+
+// Create icon components that match the old API
+const Search = (props) => <Icon name="Search" {...props} />;
+const Shield = (props) => <Icon name="Shield" {...props} />;
+const X = (props) => <Icon name="X" {...props} />;
+const AlertTriangle = (props) => <Icon name="AlertTriangle" {...props} />;
+const CheckCircle = (props) => <Icon name="CheckCircle" {...props} />;
+const Lock = (props) => <Icon name="Lock" {...props} />;
+const ExternalLink = (props) => <Icon name="ExternalLink" {...props} />;
+const Loader = (props) => <Icon name="Loader" {...props} />;
+
 // Helper function to shorten addresses
 const shortenAddress = (address, chars = 4) => {
   const addr = typeof address === 'string' ? address : address.toString();
@@ -125,7 +142,7 @@ export default function Vouch() {
   if (loading) {
     return (
       <div style={{ padding: "20px 16px 0", textAlign: "center" }}>
-        <Loader size={32} color="#0052FF" style={{ animation: "spin 1s linear infinite" }} />
+        <span style={{ fontSize: '32px' }}>{Icons.Loader}</span>
         <div style={{ fontSize: 14, color: "#6B7280", marginTop: 12 }}>
           Loading eligible nodes...
         </div>
@@ -157,7 +174,7 @@ export default function Vouch() {
               margin: "0 auto 20px",
             }}
           >
-            <Lock size={32} color="#9CA3AF" />
+            <span style={{ fontSize: '32px', color: '#9CA3AF' }}>{Icons.Lock}</span>
           </div>
           <div
             style={{
